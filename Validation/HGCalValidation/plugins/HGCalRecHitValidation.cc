@@ -218,11 +218,10 @@ template <class T1, class T2>
 void HGCalRecHitValidation::recHitValidation(DetId& detId, int layer, const T1* geom, T2 it) {
   const GlobalPoint& global = geom->getPosition(detId);
   double energy = it->energy();
-
+  uint32_t id = detId.rawId();
   float globalx = global.x();
   float globaly = global.y();
   float globalz = global.z();
-
   HitsInfo hinfo;
   hinfo.energy = energy;
   hinfo.x = globalx;

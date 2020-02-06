@@ -24,9 +24,10 @@
 #include "FWCore/Utilities/interface/transform.h"
 
 //#define EDM_ML_DEBUG
-
+using namespace std;
 using namespace hgc_digi;
-
+typedef std::vector<std::pair<float, float> >::iterator itr;
+typedef std::map<uint32_t, std::vector<std::pair<float, float> > > IdHit_Map;
 namespace {
 
   constexpr std::array<double, 4> occupancyGuesses = {{0.5, 0.2, 0.2, 0.8}};
@@ -99,12 +100,74 @@ namespace {
     return result;
   }
 
+  float getCCE(const HGCalGeometry* geom, const DetId& detid, const std::vector<float>& cces) {
+    if (cces.empty())
+      return 1.f;
+    if ((detid.det() == DetId::Hcal) || (detid.det() == DetId::HGCalHSc)) {
+      return 1.f;
+    } else {
+      const auto& topo = geom->topology();
+      const auto& dddConst = topo.dddConstants();
+      int waferTypeL = dddConst.waferType(detid);
+      return cces[waferTypeL];
+    }
+  }
+  
+  float getCCE(const HcalGeometry* geom, const DetId& id, const std::vector<float>& cces) { return 1.f; }
+
+  void saveSimHitAccumulator_minbias(CnTSimAccumulator& simResult,
+				     const hgc::HGCPUSimHitDataAccumulator& simData,
+				     const std::unordered_set<DetId>& validIds,
+				     const float minCharge,
+				     const float maxCharge,std::string digiCollection,
+				     const int& nEvents, const bool& minbiasFlag) {
+    
+    // here minbiasFlag is actually premixStage1
+    constexpr auto nEnergies = std::tuple_size<decltype(hgc_digi::HGCCellHitInfo().PUhit_info)>::value;
+    static_assert(nEnergies <= PHGCSimAccumulator::Data::energyMask + 1,
+		  "PHGCSimAccumulator bit pattern needs to updated");
+    static_assert(hgc_digi::nSamples <= PHGCSimAccumulator::Data::sampleMask + 1,
+		  "PHGCSimAccumulator bit pattern needs to updated");
+    const float minPackChargeLog = minCharge > 0.f ? std::log(minCharge) : -2;
+    const float maxPackChargeLog = std::log(maxCharge);
+    constexpr uint16_t base = 1 << PHGCSimAccumulator::Data::sampleOffset;
+    bool found_count = 0;
+    simResult.reserve(simData.size());
+    for(const auto& id : validIds){
+      auto found = simData.find(id);
+      //std::cout<<id.rawId()<<std::endl;
+      if(found == simData.end())
+	continue;
+      found_count = found_count + 1;
+      const hgc_digi::PUSimHitData& accCharge_accros_bxs = found->second.PUhit_info[0];
+      const hgc_digi::PUSimHitData& timing_accros_bxs    = found->second.PUhit_info[1];
+      for(size_t iSample = 0; iSample < hgc_digi::nSamples; ++iSample) {
+	const std::vector<float>& accChrage_inthis_bx = accCharge_accros_bxs[iSample];
+	const std::vector<float>& timing_inthis_bx    = timing_accros_bxs[iSample];
+	std::vector<unsigned short> vc, vt;
+	size_t nhits = accChrage_inthis_bx.size();
+	for(size_t ihit = 0; ihit < nhits; ++ihit){
+	  if(accChrage_inthis_bx[ihit] > minCharge){
+	    unsigned short c = logintpack::pack16log(accChrage_inthis_bx[ihit],minPackChargeLog, maxPackChargeLog, base);
+	    unsigned short t = logintpack::pack16log(timing_inthis_bx[ihit],minPackChargeLog, maxPackChargeLog, base);
+	    vc.emplace_back(c);
+	    vt.emplace_back(t);
+	  }                                                                                                                                                                   }
+	simResult.emplace_back_timing(id.rawId(), iSample, vc, vt);
+      }
+    }
+    simResult.shrink_to_fit();
+    
+  }
+
+
   // Dumps the internals of the SimHit accumulator to the digis for premixing
   void saveSimHitAccumulator(PHGCSimAccumulator& simResult,
                              const hgc::HGCSimHitDataAccumulator& simData,
                              const std::unordered_set<DetId>& validIds,
                              const float minCharge,
                              const float maxCharge) {
+    
     constexpr auto nEnergies = std::tuple_size<decltype(hgc_digi::HGCCellInfo().hit_info)>::value;
     static_assert(nEnergies <= PHGCSimAccumulator::Data::energyMask + 1,
                   "PHGCSimAccumulator bit pattern needs to updated");
@@ -135,6 +198,134 @@ namespace {
     simResult.shrink_to_fit();
   }
 
+  typedef std::vector<std::pair<float, float> >::iterator itr;
+  typedef std::map<uint32_t, std::vector<std::pair<float, float> > > IdHit_Map;
+  template <typename GEOM> void loadSimHitAccumulator_minbias(hgc::HGCSimHitDataAccumulator& simData,
+				     hgc::HGCPUSimHitDataAccumulator& PUSimData,
+				     const GEOM* geom, IdHit_Map& hitRefs_bx0,
+				     const CnTSimAccumulator& simAccumulator,
+				     const float minCharge, const float maxCharge,
+				     bool setIfZero,
+				     const std::array<float, 3>& tdcForToAOnset,
+				     const int& nEvents,
+				     const bool& minbiasFlag, std::string digiCollection){
+    
+    const float minPackChargeLog = minCharge > 0.f ? std::log(minCharge) : -2;
+    const float maxPackChargeLog = std::log(maxCharge);
+    constexpr uint16_t base = 1 << CnTSimAccumulator::SimHitCollection::sampleOffset;
+    for(const auto& detIdIndexHitInfo : simAccumulator){
+      unsigned int detId = detIdIndexHitInfo.detId();
+      int waferThickness = getCellThickness(geom, detId);
+      float cell_threshold = tdcForToAOnset[waferThickness - 1];
+      
+      auto PUsimIt    = PUSimData.emplace(detId, HGCCellHitInfo()).first;
+      auto simIt      = simData.emplace(detId, HGCCellInfo()).first;
+      auto& puhit_info = PUsimIt->second.PUhit_info;
+      auto& hitsRecBxs = PUsimIt->second.hitsRecord;
+      size_t nhits = detIdIndexHitInfo.nhits();
+      if(nhits > 0){
+	unsigned short iSample                            = detIdIndexHitInfo.sampleIndex();
+	std::vector<unsigned short> unsigned_charge_array = detIdIndexHitInfo.chargeArray();
+	std::vector<unsigned short> unsigned_time_array   = detIdIndexHitInfo.timeArray();
+	std::vector<float> Acc_charge_array = puhit_info[0][iSample];
+	std::vector<float> timing_hit_array = puhit_info[1][iSample];
+	//std::vector<std::pair<float, float> > hitsRec = hitsRecBxs[iSample];
+	float p_charge, p_time;
+	unsigned short unsigned_charge, unsigned_time;
+	bool orderChanged = false;
+	for(size_t ihit = 0; ihit < nhits; ++ihit){//nhit loop
+	  unsigned_charge = (unsigned_charge_array[ihit] & HGCDigitizer::dataMask);
+	  unsigned_time   = (unsigned_time_array[ihit] & HGCDigitizer::dataMask);
+	  p_time          = logintpack::unpack16log(unsigned_time, minPackChargeLog, maxPackChargeLog, base);
+	  p_charge        = logintpack::unpack16log(unsigned_charge, minPackChargeLog, maxPackChargeLog, base);
+	  const std::pair<float, float> charge_time_pair = std::make_pair(p_charge, p_time);
+	  (simIt->second).hit_info[0][iSample] += p_charge; 
+	  if(hitRefs_bx0[detId].empty()){
+	    hitRefs_bx0[detId].emplace_back(charge_time_pair);
+	  }
+	  else{
+	  
+	    if(p_time < hitRefs_bx0[detId].back().second){
+	      // -- the complex stuff     
+		
+	      itr findPos = std::upper_bound(hitRefs_bx0[detId].begin(), hitRefs_bx0[detId].end(),std::make_pair(0.f, p_time),
+					       [](const auto& i, const auto& j){return i.second < j.second; });
+		
+	      /*itr insertedPos = hitRefs_bx0[detId].insert(findPos, (findPos == hitRefs_bx0[detId].begin()) ?
+						 std::make_pair(p_charge, p_time) :
+						 std::make_pair((findPos - 1)->first+p_charge, p_time));
+	      */
+	      // modifications for insertedPos has to be done here
+	      itr insertedPos = findPos;
+	      if(findPos == hitRefs_bx0[detId].begin()){
+		insertedPos = hitRefs_bx0[detId].insert(insertedPos, std::make_pair(p_charge, p_time));
+		  }
+	      else{
+		itr prevPos = findPos - 1;
+		if(prevPos->second == p_time){
+		  prevPos->first = prevPos->first + p_charge;
+		  insertedPos = prevPos;
+		}
+		else if(prevPos->second < p_time){
+		  insertedPos = hitRefs_bx0[detId].insert(findPos,std::make_pair((prevPos)->first+p_charge, p_time));
+		}
+	      }
+	      
+
+	      for(itr step = insertedPos ; step!=hitRefs_bx0[detId].end(); ++step){
+		if(step != insertedPos)
+		  step->first += p_charge;
+		/*if(step->first > cell_threshold){
+		    hitRefs_bx0[detId].resize((step+1) - hitRefs_bx0[detId].begin());
+		    break;
+		    }*/
+	      }
+	      orderChanged = true;
+		
+	    }
+	    else if (p_time == hitRefs_bx0[detId].back().second){
+	      hitRefs_bx0[detId].back().first += p_charge;
+	    }
+	    else if (p_time > hitRefs_bx0[detId].back().second){
+	      hitRefs_bx0[detId].emplace_back(std::make_pair(hitRefs_bx0[detId].back().first + p_charge, p_time));
+	    }
+	  }//big else
+	  
+	}//nhit loop
+	//if(!minbiasFlag)
+	//myfile6.close();
+	if(minbiasFlag){
+	  float accChargeForToA(0.f), fireTDC(0.f);
+	  if(hitRefs_bx0[detId].size() > 0){
+	    itr aboveThrPos = std::upper_bound(hitRefs_bx0[detId].begin(),hitRefs_bx0[detId].end(),
+					       std::make_pair(cell_threshold, 0.f),
+					       [](const auto& i, const auto& j){return i.first < j.first; });
+
+	    if(aboveThrPos == hitRefs_bx0[detId].end()){
+	      accChargeForToA = hitRefs_bx0[detId].back().first;
+	      fireTDC         = 0.f; //hitRefs_bx0[detId].back().second;
+	    }
+	    else if(hitRefs_bx0[detId].end()- aboveThrPos > 0 || orderChanged){
+	      accChargeForToA = aboveThrPos->first;
+	      fireTDC         = aboveThrPos->second;
+	      if(aboveThrPos-hitRefs_bx0[detId].begin()>=1){
+		itr belowThrPos = aboveThrPos - 1;
+		float chargeBeforeThr = belowThrPos->first;
+		float timeBeforeThr   = belowThrPos->second;
+		float deltaQ             = accChargeForToA - chargeBeforeThr;
+		float deltaTOF           = fireTDC - timeBeforeThr;
+		fireTDC                  = (cell_threshold - chargeBeforeThr) * deltaTOF / deltaQ + timeBeforeThr;
+	      }// if vector > 1(if has to be linearly interpolated)
+	      //(simIt->second).hit_info[1][iSample] = fireTDC;
+	    }// if actually accumulated charge crossed Thr or OrderChanged==true
+	    //**--original pos(simIt->second).hit_info[1][iSample] = fireTDC;
+	  }// if any charge deposited at all
+	  (simIt->second).hit_info[1][iSample] = fireTDC;
+	}//if minbiasFlag
+      }// if nhits>0
+    }// for detIdindexInfo
+  }//function end
+  
   // Loads the internals of the SimHit accumulator from the digis for premixing
   void loadSimHitAccumulator(hgc::HGCSimHitDataAccumulator& simData,
                              const PHGCSimAccumulator& simAccumulator,
@@ -166,12 +357,14 @@ namespace {
 //
 HGCDigitizer::HGCDigitizer(const edm::ParameterSet& ps, edm::ConsumesCollector& iC)
     : simHitAccumulator_(new HGCSimHitDataAccumulator()),
+      pusimHitAccumulator_(new HGCPUSimHitDataAccumulator()),
       myDet_(DetId::Forward),
       mySubDet_(ForwardSubdetector::ForwardEmpty),
       refSpeed_(0.1 * CLHEP::c_light),  //[CLHEP::c_light]=mm/ns convert to cm/ns
       averageOccupancies_(occupancyGuesses),
       nEvents_(1) {
   //configure from cfg
+  
   hitCollection_ = ps.getParameter<std::string>("hitCollection");
   digiCollection_ = ps.getParameter<std::string>("digiCollection");
   maxSimHitsAccTime_ = ps.getParameter<uint32_t>("maxSimHitsAccTime");
@@ -185,7 +378,7 @@ HGCDigitizer::HGCDigitizer(const edm::ParameterSet& ps, edm::ConsumesCollector& 
   premixStage1MaxCharge_ = ps.getParameter<double>("premixStage1MaxCharge");
 
   std::unordered_set<DetId>().swap(validIds_);
-
+  
   iC.consumes<std::vector<PCaloHit>>(edm::InputTag("g4SimHits", hitCollection_));
   const auto& myCfg_ = ps.getParameter<edm::ParameterSet>("digiCfg");
 
@@ -229,6 +422,8 @@ HGCDigitizer::HGCDigitizer(const edm::ParameterSet& ps, edm::ConsumesCollector& 
     myDet_ = DetId::Forward;
     theHFNoseDigitizer_ = std::make_unique<HFNoseDigitizer>(ps);
   }
+  event_counter = 0;
+  mixstep_ = 0;
 }
 
 //
@@ -236,20 +431,23 @@ void HGCDigitizer::initializeEvent(edm::Event const& e, edm::EventSetup const& e
   // reserve memory for a full detector
   unsigned idx = getType();
   simHitAccumulator_->reserve(averageOccupancies_[idx] * validIds_.size());
+  pusimHitAccumulator_->reserve(averageOccupancies_[idx] * validIds_.size());
+  pileup_counter = 0;
 }
 
 //
 void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP::HepRandomEngine* hre) {
   hitRefs_bx0.clear();
-
   const CaloSubdetectorGeometry* theGeom = (nullptr == gHGCal_ ? static_cast<const CaloSubdetectorGeometry*>(gHcal_)
                                                                : static_cast<const CaloSubdetectorGeometry*>(gHGCal_));
-
+  ++event_counter;
   ++nEvents_;
+  //++nEvents_;
   unsigned idx = getType();
   // release memory for unfilled parts of hash table
   if (validIds_.size() * averageOccupancies_[idx] > simHitAccumulator_->size()) {
     simHitAccumulator_->reserve(simHitAccumulator_->size());
+    pusimHitAccumulator_->reserve(simHitAccumulator_->size());
   }
   //update occupancy guess
   const double thisOcc = simHitAccumulator_->size() / ((double)validIds_.size());
@@ -257,11 +455,21 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
 
   if (premixStage1_) {
     std::unique_ptr<PHGCSimAccumulator> simResult;
+    std::unique_ptr<CnTSimAccumulator> simRecord;
+
     if (!simHitAccumulator_->empty()) {
       simResult = std::make_unique<PHGCSimAccumulator>();
       saveSimHitAccumulator(*simResult, *simHitAccumulator_, validIds_, premixStage1MinCharge_, premixStage1MaxCharge_);
     }
+    if(!pusimHitAccumulator_->empty()) {
+      
+      simRecord = std::make_unique<CnTSimAccumulator>();
+      saveSimHitAccumulator_minbias(*simRecord, *pusimHitAccumulator_, validIds_, premixStage1MinCharge_, premixStage1MaxCharge_, digiCollection_, nEvents_, premixStage1_);
+    }
+
     e.put(std::move(simResult), digiCollection());
+    e.put(std::move(simRecord), digiCollection());
+    
   } else {
     if (producesEEDigis()) {
       auto digiResult = std::make_unique<HGCalDigiCollection>();
@@ -304,8 +512,26 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
       e.put(std::move(digiResult), digiCollection());
     }
   }
-
+  //std::cout<<"ended finalize event with premixStage1_ value : "<<premixStage1_<<std::endl;
   hgc::HGCSimHitDataAccumulator().swap(*simHitAccumulator_);
+}
+void HGCDigitizer::accumulate_minbias(edm::Event const& e, edm::EventSetup const& eventSetup, CLHEP::HepRandomEngine* hre) {
+  //get inputs
+  edm::Handle<edm::PCaloHitContainer> hits;
+  e.getByLabel(edm::InputTag("g4SimHits", hitCollection_), hits);
+  if (!hits.isValid()) {
+    edm::LogError("HGCDigitizer") << " @ accumulate_minbias : can't find " << hitCollection_ << " collection of g4SimHits";
+    return;
+  }
+
+  //accumulate in-time the main event
+  if (nullptr != gHGCal_) {
+    accumulate_minbias(hits, 0, gHGCal_, hre);
+  } else if (nullptr != gHcal_) {
+    accumulate_minbias(hits, 0, gHcal_, hre);
+  } else {
+    throw cms::Exception("BadConfiguration") << "HGCDigitizer is not producing EE, FH, or BH digis!";
+  }
 }
 
 //
@@ -326,6 +552,31 @@ void HGCDigitizer::accumulate(edm::Event const& e, edm::EventSetup const& eventS
   } else {
     throw cms::Exception("BadConfiguration") << "HGCDigitizer is not producing EE, FH, or BH digis!";
   }
+
+}
+
+//
+void HGCDigitizer::accumulate_minbias(PileUpEventPrincipal const& e,
+				      edm::EventSetup const& eventSetup,
+				      CLHEP::HepRandomEngine* hre) {
+  edm::Handle<edm::PCaloHitContainer> hits;
+  e.getByLabel(edm::InputTag("g4SimHits", hitCollection_), hits);
+  
+  if (!hits.isValid()) {
+    edm::LogError("HGCDigitizer") << " @ accumulate : can't find " << hitCollection_ << " collection of g4SimHits";
+    return;
+  }
+  std::cout<<" -- processing minbias event # "<<e.principal().id().event()<<std::endl;
+  if (nullptr != gHGCal_) {
+    
+    accumulate_minbias(hits, e.bunchCrossing(), gHGCal_, hre);
+  } else if (nullptr != gHcal_) {
+    
+    accumulate_minbias(hits, e.bunchCrossing(), gHcal_, hre);
+  } else {
+    throw cms::Exception("BadConfiguration") << "HGCDigitizer is not producing EE, FH, or BH digis!";
+  }
+
 }
 
 //
@@ -335,6 +586,7 @@ void HGCDigitizer::accumulate(PileUpEventPrincipal const& e,
   //get inputs
   edm::Handle<edm::PCaloHitContainer> hits;
   e.getByLabel(edm::InputTag("g4SimHits", hitCollection_), hits);
+  
   if (!hits.isValid()) {
     edm::LogError("HGCDigitizer") << " @ accumulate : can't find " << hitCollection_ << " collection of g4SimHits";
     return;
@@ -352,33 +604,96 @@ void HGCDigitizer::accumulate(PileUpEventPrincipal const& e,
 
 //
 template <typename GEOM>
+void HGCDigitizer::accumulate_minbias(edm::Handle<edm::PCaloHitContainer> const& hits,
+				      int bxCrossing,
+				      const GEOM* geom,
+				      CLHEP::HepRandomEngine* hre) {
+  pileup_counter = pileup_counter + 1;
+  if (nullptr == geom)
+    return;
+
+  std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
+  float keV2fC(0.f);
+  bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
+  std::unordered_set<uint32_t> detset;
+  int nchits = (int)hits->size();
+  
+  std::vector<HGCCaloHitTuple_t> hitRefs;
+  hitRefs.reserve(nchits);
+  for(int i = 0; i < nchits; ++i) {
+    const auto& the_hit = hits->at(i);
+    DetId id = simToReco(geom, the_hit.id());
+    // to be written the verbosity block
+    if(id.rawId() != 0){
+      hitRefs.emplace_back(i, id.rawId(), (float)the_hit.time());
+    }
+  }
+  std::sort(hitRefs.begin(), hitRefs.end(), this->orderByDetIdThenTime);
+  
+  nchits = hitRefs.size();
+  for(int i=0; i<nchits; ++i) {
+    const int hitidx = std::get<0>(hitRefs[i]);
+    const uint32_t id = std::get<1>(hitRefs[i]);
+    if(!validIds_.count(id))
+      continue;
+
+    HGCPUSimHitDataAccumulator::iterator simHitIt = pusimHitAccumulator_->emplace(id,HGCCellHitInfo()).first;
+    if(id == 0)
+      continue;
+    
+    const float toa = std::get<2>(hitRefs[i]);
+    const PCaloHit& hit = hits->at(hitidx);
+    const float charge = hit.energy() * 1e6 * keV2fC * getCCE(geom, id, cce_);
+    
+    const float dist2center(getPositionDistance(geom, id));
+    const float tof = toa - dist2center/refSpeed_ +tofDelay_;
+    const int itime = std::floor(tof/bxTime_) + 9;
+    
+    if(itime < 0 || itime > 14)
+      continue;
+    
+    if (itime >= (int)simHitIt->second.PUhit_info[0].size())
+      continue;
+    
+    //(simHitIt->second).hit_info[0][itime] += charge;
+    int waferThickness = getCellThickness(geom, id);
+    //bool orderChanged = false;
+    detset.emplace(id); 
+    if(itime==9) {
+      (simHitIt->second).PUhit_info[1][itime].push_back(tof);
+      (simHitIt->second).PUhit_info[0][itime].push_back(charge);
+    }
+  }
+  hitRefs.clear();
+}
+
+//
+template <typename GEOM>
 void HGCDigitizer::accumulate(edm::Handle<edm::PCaloHitContainer> const& hits,
                               int bxCrossing,
                               const GEOM* geom,
                               CLHEP::HepRandomEngine* hre) {
   if (nullptr == geom)
     return;
-
-  //configuration to apply for the computation of time-of-flight
   std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
   float keV2fC(0.f);
   bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
-
-  //create list of tuples (pos in container, RECO DetId, time) to be sorted first
+  
+  //create list of tuples (pos in container, RECO DetId, time) to be sorted first                                                                       
   int nchits = (int)hits->size();
+  
   std::vector<HGCCaloHitTuple_t> hitRefs;
   hitRefs.reserve(nchits);
   for (int i = 0; i < nchits; ++i) {
     const auto& the_hit = hits->at(i);
-
     DetId id = simToReco(geom, the_hit.id());
 
     if (verbosity_ > 0) {
       if (producesEEDigis())
-        edm::LogVerbatim("HGCDigitizer") << "HGCDigitizer::i/p " << std::hex << the_hit.id() << " o/p " << id.rawId()
+	edm::LogVerbatim("HGCDigitizer") << "HGCDigitizer::i/p " << std::hex << the_hit.id() << " o/p " << id.rawId()
                                          << std::dec;
       else
-        edm::LogVerbatim("HGCDigitizer") << "HGCDigitizer::i/p " << std::hex << the_hit.id() << " o/p " << id.rawId()
+	edm::LogVerbatim("HGCDigitizer") << "HGCDigitizer::i/p " << std::hex << the_hit.id() << " o/p " << id.rawId()
                                          << std::dec;
     }
 
@@ -386,22 +701,22 @@ void HGCDigitizer::accumulate(edm::Handle<edm::PCaloHitContainer> const& hits,
       hitRefs.emplace_back(i, id.rawId(), (float)the_hit.time());
     }
   }
-  std::sort(hitRefs.begin(), hitRefs.end(), this->orderByDetIdThenTime);
 
-  //loop over sorted hits
+  std::sort(hitRefs.begin(), hitRefs.end(), this->orderByDetIdThenTime);
+  //loop over sorted hits                                                                                                                               
   nchits = hitRefs.size();
   for (int i = 0; i < nchits; ++i) {
     const int hitidx = std::get<0>(hitRefs[i]);
     const uint32_t id = std::get<1>(hitRefs[i]);
 
-    //get the data for this cell, if not available then we skip it
+    //get the data for this cell, if not available then we skip it                                                                                      
 
     if (!validIds_.count(id))
       continue;
     HGCSimHitDataAccumulator::iterator simHitIt = simHitAccumulator_->emplace(id, HGCCellInfo()).first;
 
     if (id == 0)
-      continue;  // to be ignored at RECO level
+      continue;  // to be ignored at RECO level                                                                                                         
 
     const float toa = std::get<2>(hitRefs[i]);
     const PCaloHit& hit = hits->at(hitidx);
@@ -418,7 +733,7 @@ void HGCDigitizer::accumulate(edm::Handle<edm::PCaloHitContainer> const& hits,
     //no need to add bx crossing - tof comes already corrected from the mixing module
     //itime += bxCrossing;
     //itime += 9;
-
+    
     if (itime < 0 || itime > 14)
       continue;
 
@@ -428,83 +743,131 @@ void HGCDigitizer::accumulate(edm::Handle<edm::PCaloHitContainer> const& hits,
 
     (simHitIt->second).hit_info[0][itime] += charge;
 
+    //for time-of-arrival: save the time-sorted list of timestamps with cumulative charge just above threshold
     //working version with pileup only for in-time hits
     int waferThickness = getCellThickness(geom, id);
     bool orderChanged = false;
     if (itime == 9) {
+      //if start empty => just add charge and time
       if (hitRefs_bx0[id].empty()) {
         hitRefs_bx0[id].emplace_back(charge, tof);
-      } else if (tof <= hitRefs_bx0[id].back().second) {
-        std::vector<std::pair<float, float>>::iterator findPos =
-            std::upper_bound(hitRefs_bx0[id].begin(),
-                             hitRefs_bx0[id].end(),
-                             std::pair<float, float>(0.f, tof),
-                             [](const auto& i, const auto& j) { return i.second < j.second; });
+	//duplicate_hitRefs_bx0[id].emplace_back(charge, tof);
+      }  else if (tof <= hitRefs_bx0[id].back().second) {
+        //find position to insert new entry preserving time sorting
+	std::vector<std::pair<float, float>>::iterator findPos =
+          std::upper_bound(hitRefs_bx0[id].begin(),
+                           hitRefs_bx0[id].end(),
+                           std::pair<float, float>(0.f, tof),
+                           [](const auto& i, const auto& j) { return i.second <= j.second; });
 
-        std::vector<std::pair<float, float>>::iterator insertedPos = hitRefs_bx0[id].insert(
-            findPos,
-            (findPos == hitRefs_bx0[id].begin()) ? std::pair<float, float>(charge, tof)
-                                                 : std::pair<float, float>((findPos - 1)->first + charge, tof));
+	std::vector<std::pair<float, float>>::iterator insertedPos = findPos;
+        if (findPos->second == tof) {
+          //just merge timestamps with exact timing
+	  findPos->first += charge;
+        } else {
+          //insert new element cumulating the charge
+	  insertedPos = hitRefs_bx0[id].insert(findPos,
+                                               (findPos == hitRefs_bx0[id].begin())
+                                               ? std::pair<float, float>(charge, tof)
+                                               : std::pair<float, float>((findPos - 1)->first + charge, tof));
+        }
 
-        for (std::vector<std::pair<float, float>>::iterator step = insertedPos + 1; step != hitRefs_bx0[id].end();
-             ++step) {
-          step->first += charge;
+        //cumulate the charge of new entry for all elements that follow in the sorted list
+	//and resize list accounting for cases when the inserted element itself crosses the threshold
+	for (std::vector<std::pair<float, float>>::iterator step = insertedPos; step != hitRefs_bx0[id].end(); ++step) {
+          if (step != insertedPos)
+            step->first += charge;
+          // resize the list stopping with the first timeStamp with cumulative charge above threshold                                                   
           if (step->first > tdcForToAOnset[waferThickness - 1] && step->second != hitRefs_bx0[id].back().second) {
-            hitRefs_bx0[id].resize(std::upper_bound(hitRefs_bx0[id].begin(),
-                                                    hitRefs_bx0[id].end(),
-                                                    std::pair<float, float>(0.f, step->second),
-                                                    [](const auto& i, const auto& j) { return i.second < j.second; }) -
-                                   hitRefs_bx0[id].begin());
+            hitRefs_bx0[id].resize(std::upper_bound(hitRefs_bx0[id].begin(),                                                                          
+                                                    hitRefs_bx0[id].end(),                                                                              
+                                                    std::pair<float, float>(0.f, step->second),                                                         
+                                                    [](const auto& i, const auto& j) { return i.second < j.second; }) -                                 
+                                                    hitRefs_bx0[id].begin());
             for (auto stepEnd = step + 1; stepEnd != hitRefs_bx0[id].end(); ++stepEnd)
               stepEnd->first += charge;
             break;
           }
         }
+
         orderChanged = true;
       } else {
+        //add new entry at the end of the list                                                                                                          
         if (hitRefs_bx0[id].back().first <= tdcForToAOnset[waferThickness - 1]) {
           hitRefs_bx0[id].emplace_back(hitRefs_bx0[id].back().first + charge, tof);
         }
       }
     }
-
     float accChargeForToA = hitRefs_bx0[id].empty() ? 0.f : hitRefs_bx0[id].back().first;
-
-    //time-of-arrival (check how to be used)
+    //now compute the firing ToA through the interpolation of the consecutive time-stamps at threshold                                                  
     if (weightToAbyEnergy)
       (simHitIt->second).hit_info[1][itime] += charge * tof;
     else if (accChargeForToA > tdcForToAOnset[waferThickness - 1] &&
              ((simHitIt->second).hit_info[1][itime] == 0 || orderChanged == true)) {
       float fireTDC = hitRefs_bx0[id].back().second;
       if (hitRefs_bx0[id].size() > 1) {
-        float chargeBeforeThr = 0.f;
-        float tofchargeBeforeThr = 0.f;
-        for (const auto& step : hitRefs_bx0[id]) {
-          if (step.first + chargeBeforeThr <= tdcForToAOnset[waferThickness - 1]) {
-            chargeBeforeThr += step.first;
-            tofchargeBeforeThr = step.second;
-          } else
-            break;
-        }
-        float deltaQ = accChargeForToA - chargeBeforeThr;
+        float chargeBeforeThr    = (hitRefs_bx0[id].end() - 2)->first;
+        float tofchargeBeforeThr = (hitRefs_bx0[id].end() - 2)->second;
+
+        float deltaQ   = accChargeForToA - chargeBeforeThr;
         float deltaTOF = fireTDC - tofchargeBeforeThr;
-        fireTDC = (tdcForToAOnset[waferThickness - 1] - chargeBeforeThr) * deltaTOF / deltaQ + tofchargeBeforeThr;
+        fireTDC        = (tdcForToAOnset[waferThickness - 1] - chargeBeforeThr) * deltaTOF / deltaQ + tofchargeBeforeThr;
       }
       (simHitIt->second).hit_info[1][itime] = fireTDC;
     }
   }
   hitRefs.clear();
 }
+void HGCDigitizer::accumulate_minbias(const CnTSimAccumulator& simAccumulator, const bool& minbiasFlag) {
+  //configuration to apply for the computation of time-of-flight
+  std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
+  float keV2fC(0.f);
+  bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
+  //int waferThickness = getCellThickness(geom, id);
+  
+  if (nullptr != gHGCal_){
+    
+    loadSimHitAccumulator_minbias(*simHitAccumulator_, *pusimHitAccumulator_, gHGCal_, hitRefs_bx0, 
+				  simAccumulator, premixStage1MinCharge_, premixStage1MaxCharge_, !weightToAbyEnergy, 
+				  tdcForToAOnset, nEvents_, minbiasFlag, digiCollection_);
+  }
+  else if (nullptr != gHcal_){
+    
+    loadSimHitAccumulator_minbias(*simHitAccumulator_, *pusimHitAccumulator_, gHcal_, hitRefs_bx0,
+				  simAccumulator, premixStage1MinCharge_, premixStage1MaxCharge_, !weightToAbyEnergy, 
+				  tdcForToAOnset, nEvents_, minbiasFlag, digiCollection_);}
+  unsigned int x = hitRefs_bx0.size();
+  std::map<uint32_t, std::vector<std::pair<float, float> > >::const_iterator it;
+  
+}
+
+
 
 void HGCDigitizer::accumulate(const PHGCSimAccumulator& simAccumulator) {
   //configuration to apply for the computation of time-of-flight
+  unsigned int a      =  hitRefs_bx0.size();
+  long unsigned int b = (*simHitAccumulator_).size();
+  long unsigned int c = (*pusimHitAccumulator_).size();
+  
+  //std::cout<<"event_number, nEvents_ , premixStage1_ from accumulate "<<event_counter<<"\t"<<nEvents_<<"\t"<<premixStage1_<<std::endl;
+  
   std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
   float keV2fC(0.f);
   bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
   loadSimHitAccumulator(
       *simHitAccumulator_, simAccumulator, premixStage1MinCharge_, premixStage1MaxCharge_, !weightToAbyEnergy);
 }
-
+/*
+void HGCDigitizer::accumulate_minbias(const CnTSimAccumulator& simAccumulator) {
+  //configuration to apply for the computation of time-of-flight
+  //std::cout<<" ------- accumulate_minbias 4"<<std::endl;
+  std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
+  float keV2fC(0.f);
+  bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
+  loadSimHitAccumulator_minbias(
+			*pusimHitAccumulator_, simAccumulator, premixStage1MinCharge_, premixStage1MaxCharge_, !weightToAbyEnergy);
+}
+*/
 //
 void HGCDigitizer::beginRun(const edm::EventSetup& es) {
   //get geometry
@@ -528,7 +891,7 @@ void HGCDigitizer::beginRun(const edm::EventSetup& es) {
       gHGCal_ = dynamic_cast<const HGCalGeometry*>(geom->getSubdetectorGeometry(myDet_, mySubDet_));
     }
   }
-
+ 
   int nadded(0);
   //valid ID lists
   if (nullptr != gHGCal_) {
@@ -549,12 +912,20 @@ void HGCDigitizer::endRun() { std::unordered_set<DetId>().swap(validIds_); }
 
 //
 void HGCDigitizer::resetSimHitDataAccumulator() {
+  std::cout<<"resetSimHitDataAccumulator being called"<<std::endl;
   for (HGCSimHitDataAccumulator::iterator it = simHitAccumulator_->begin(); it != simHitAccumulator_->end(); it++) {
     it->second.hit_info[0].fill(0.);
     it->second.hit_info[1].fill(0.);
   }
 }
-
+void HGCDigitizer::resetPUSimHitDataAccumulator() {
+  for (HGCPUSimHitDataAccumulator::iterator it = pusimHitAccumulator_->begin(); it != pusimHitAccumulator_->end(); it++) {
+    for(unsigned int iSample = 0; iSample < hgc::nSamples; ++iSample){
+      it->second.PUhit_info[0][iSample].reserve(1);
+      it->second.PUhit_info[1][iSample].reserve(1);
+    }
+  }
+}
 uint32_t HGCDigitizer::getType() const {
   uint32_t idx = std::numeric_limits<unsigned>::max();
   if (geometryType_ == 0) {
@@ -691,6 +1062,16 @@ void HGCDigitizer::checkPosition(const HGCalDigiCollection* digis) const {
   }
 }
 
+template void HGCDigitizer::accumulate_minbias<HcalGeometry>(edm::Handle<edm::PCaloHitContainer> const& hits,
+                                      int bxCrossing,
+                                      const HcalGeometry* geom,
+                                      CLHEP::HepRandomEngine* hre);
+
+template void HGCDigitizer::accumulate_minbias<HGCalGeometry>(edm::Handle<edm::PCaloHitContainer> const& hits,
+                                      int bxCrossing,
+                                      const HGCalGeometry* geom,
+                                      CLHEP::HepRandomEngine* hre);
+
 template void HGCDigitizer::accumulate<HcalGeometry>(edm::Handle<edm::PCaloHitContainer> const& hits,
                                                      int bxCrossing,
                                                      const HcalGeometry* geom,
@@ -699,3 +1080,6 @@ template void HGCDigitizer::accumulate<HGCalGeometry>(edm::Handle<edm::PCaloHitC
                                                       int bxCrossing,
                                                       const HGCalGeometry* geom,
                                                       CLHEP::HepRandomEngine* hre);
+
+
+

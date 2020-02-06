@@ -525,6 +525,7 @@ namespace edm {
           // non-minbias pileup only gets one event for now. Fix later if desired.
           int numberOfEvents = (readSrcIdx == 0 ? PileupList[bunchIdx - minBunch_] : 1);
           sizes.push_back(numberOfEvents);
+	  //std::cout<<"----- From SimGeneral/MixingModule/plugins/MixingModule.cc : "<<numberOfEvents<<std::endl;
           inputSources_[readSrcIdx]->readPileUp(e.id(),
                                                 recordEventID,
                                                 std::bind(&MixingModule::pileAllWorkers,
