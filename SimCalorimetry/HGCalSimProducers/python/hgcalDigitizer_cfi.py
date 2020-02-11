@@ -6,8 +6,8 @@ from SimCalorimetry.HGCalSimProducers.hgcROCParameters_cfi import hgcROCSettings
 eV_per_eh_pair = 3.62
 fC_per_ele     = 1.6020506e-4
 nonAgedCCEs    = [1.0, 1.0, 1.0]
-nonAgedNoises  = [2100.0,2100.0,1600.0] #100,200,300 um (in electrons)
-nonAgedNoises_v9 = [2000.0,2400.0,2000.0] # 120,200,300 um (in electrons)
+nonAgedNoises  = [0.0, 0.0, 0.0]  #[2100.0,2100.0,1600.0] #100,200,300 um (in electrons)
+nonAgedNoises_v9 = [0.0, 0.0, 0.0]#[2000.0,2400.0,2000.0] # 120,200,300 um (in electrons)
 thresholdTracksMIP = True
 
 ileakParam_600V     = [0.993,-42.668]

@@ -8,12 +8,13 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 //
-HGCDigiProducer::HGCDigiProducer(edm::ParameterSet const& pset,
-                                 edm::ProducesCollector producesCollector,
-                                 edm::ConsumesCollector& iC)
+HGCDigiProducer::HGCDigiProducer(edm::ParameterSet const& pset, edm::ProducesCollector producesCollector, edm::ConsumesCollector& iC)
     : HGCDigiProducer(pset, iC) {
   if (pset.getParameter<bool>("premixStage1")) {
+    
+    producesCollector.produces<CnTSimAccumulator>(theDigitizer_.digiCollection());
     producesCollector.produces<PHGCSimAccumulator>(theDigitizer_.digiCollection());
+    
   } else {
     producesCollector.produces<HGCalDigiCollection>(theDigitizer_.digiCollection());
   }
@@ -24,6 +25,7 @@ HGCDigiProducer::HGCDigiProducer(edm::ParameterSet const& pset, edm::ConsumesCol
 
 //
 void HGCDigiProducer::initializeEvent(edm::Event const& event, edm::EventSetup const& es) {
+  //std::cout<<"~~~ calling plugins/HGCDigiProducer.initializeEvent"<<std::endl;
   edm::Service<edm::RandomNumberGenerator> rng;
   randomEngine_ = &rng->getEngine(event.streamID());
   theDigitizer_.initializeEvent(event, es);
@@ -31,19 +33,37 @@ void HGCDigiProducer::initializeEvent(edm::Event const& event, edm::EventSetup c
 
 //
 void HGCDigiProducer::finalizeEvent(edm::Event& event, edm::EventSetup const& es) {
+  //std::cout<<"~~~ calling plugins/HGCDigiProducer.finalizeEvent"<<std::endl;
   theDigitizer_.finalizeEvent(event, es, randomEngine_);
   randomEngine_ = nullptr;  // to precent access outside event
 }
 
 //
-void HGCDigiProducer::accumulate(edm::Event const& event, edm::EventSetup const& es) {
-  theDigitizer_.accumulate(event, es, randomEngine_);
+void HGCDigiProducer::accumulate_minbias(edm::Event const& event, edm::EventSetup const& es) {
+  theDigitizer_.accumulate_minbias(event, es, randomEngine_);
 }
 
-void HGCDigiProducer::accumulate(PileUpEventPrincipal const& event,
+//
+void HGCDigiProducer::accumulate_minbias(PileUpEventPrincipal const& event,
                                  edm::EventSetup const& es,
                                  edm::StreamID const& streamID) {
+  theDigitizer_.accumulate_minbias(event, es, randomEngine_);
+}
+
+void HGCDigiProducer::accumulate(edm::Event const& event, edm::EventSetup const& es) {
+  //std::cout<<"~~~ calling plugins/HGCDigiProducer.accumulate 1"<<std::endl;
+  //std::cout<<"--oo--"<<std::endl;
+  theDigitizer_.accumulate_minbias(event, es, randomEngine_);
   theDigitizer_.accumulate(event, es, randomEngine_);
+}                                                                                                                                                     
+ 
+void HGCDigiProducer::accumulate(PileUpEventPrincipal const& event,
+				 edm::EventSetup const& es,
+				 edm::StreamID const& streamID) {
+  //std::cout<<"~~~ calling accumulate 2"<<std::endl;
+  //std::cout<<"--ooo--"<<std::endl;
+  theDigitizer_.accumulate_minbias(event, es, randomEngine_);
+  theDigitizer_.accumulate(event, es, randomEngine_); 
 }
 
 //
