@@ -33,8 +33,8 @@ public:
 
 private:
   edm::EDGetTokenT<PHGCSimAccumulator> signalToken_;
-
-  edm::InputTag pileInputTag_;
+  edm::EDGetTokenT<PreMixSimAccumulator> signalToken1_;
+  edm::InputTag pileupInputTag_;
 
   HGCDigitizer digitizer_;
 };
@@ -43,25 +43,30 @@ PreMixingHGCalWorker::PreMixingHGCalWorker(const edm::ParameterSet& ps,
                                            edm::ProducesCollector producesCollector,
                                            edm::ConsumesCollector&& iC)
     : signalToken_(iC.consumes<PHGCSimAccumulator>(ps.getParameter<edm::InputTag>("digiTagSig"))),
-      pileInputTag_(ps.getParameter<edm::InputTag>("pileInputTag")),
+      signalToken1_(iC.consumes<PreMixSimAccumulator>(ps.getParameter<edm::InputTag>("digiTagSig"))),
+      pileupInputTag_(ps.getParameter<edm::InputTag>("pileInputTag")),
       digitizer_(ps, iC) {
   producesCollector.produces<HGCalDigiCollection>(digitizer_.digiCollection());
 }
 
-void PreMixingHGCalWorker::beginRun(const edm::Run& run, const edm::EventSetup& ES) { digitizer_.beginRun(ES); }
+void PreMixingHGCalWorker::beginRun(const edm::Run& run, const edm::EventSetup& ES) { 
+  digitizer_.beginRun(ES); }
 
-void PreMixingHGCalWorker::endRun() { digitizer_.endRun(); }
+void PreMixingHGCalWorker::endRun() { 
+  digitizer_.endRun(); }
 
 void PreMixingHGCalWorker::addSignals(const edm::Event& e, const edm::EventSetup& ES) {
-  edm::Handle<PHGCSimAccumulator> handle;
-  e.getByToken(signalToken_, handle);
-  digitizer_.accumulate(*handle);
+  edm::Handle<PreMixSimAccumulator> handle;
+  e.getByToken(signalToken1_, handle);
+  digitizer_.accumulate_forPreMix(*handle, 0);
+  
 }
 
 void PreMixingHGCalWorker::addPileups(const PileUpEventPrincipal& pep, const edm::EventSetup& ES) {
-  edm::Handle<PHGCSimAccumulator> handle;
-  pep.getByLabel(pileInputTag_, handle);
-  digitizer_.accumulate(*handle);
+  edm::Handle<PreMixSimAccumulator> handle;
+  pep.getByLabel(pileupInputTag_, handle);
+  digitizer_.accumulate_forPreMix(*handle, 1);
+  
 }
 
 void PreMixingHGCalWorker::put(edm::Event& e,
@@ -73,3 +78,4 @@ void PreMixingHGCalWorker::put(edm::Event& e,
 }
 
 DEFINE_PREMIXING_WORKER(PreMixingHGCalWorker);
+

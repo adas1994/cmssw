@@ -8,12 +8,13 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 
 //
-HGCDigiProducer::HGCDigiProducer(edm::ParameterSet const& pset,
-                                 edm::ProducesCollector producesCollector,
-                                 edm::ConsumesCollector& iC)
+HGCDigiProducer::HGCDigiProducer(edm::ParameterSet const& pset, edm::ProducesCollector producesCollector, edm::ConsumesCollector& iC)
     : HGCDigiProducer(pset, iC) {
   if (pset.getParameter<bool>("premixStage1")) {
+    
+    producesCollector.produces<PreMixSimAccumulator>(theDigitizer_.digiCollection());
     producesCollector.produces<PHGCSimAccumulator>(theDigitizer_.digiCollection());
+    
   } else {
     producesCollector.produces<HGCalDigiCollection>(theDigitizer_.digiCollection());
   }
@@ -35,15 +36,16 @@ void HGCDigiProducer::finalizeEvent(edm::Event& event, edm::EventSetup const& es
   randomEngine_ = nullptr;  // to precent access outside event
 }
 
-//
 void HGCDigiProducer::accumulate(edm::Event const& event, edm::EventSetup const& es) {
+  theDigitizer_.accumulate_forPreMix(event, es, randomEngine_);
   theDigitizer_.accumulate(event, es, randomEngine_);
-}
-
+}                                                                                                                                                     
+ 
 void HGCDigiProducer::accumulate(PileUpEventPrincipal const& event,
-                                 edm::EventSetup const& es,
-                                 edm::StreamID const& streamID) {
-  theDigitizer_.accumulate(event, es, randomEngine_);
+				 edm::EventSetup const& es,
+				 edm::StreamID const& streamID) {
+  theDigitizer_.accumulate_forPreMix(event, es, randomEngine_);
+  theDigitizer_.accumulate(event, es, randomEngine_); 
 }
 
 //

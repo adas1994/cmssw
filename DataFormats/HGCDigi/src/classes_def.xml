@@ -1,14 +1,5 @@
 <lcgdict>
-   <class name="HGCSample" ClassVersion="10">
-    <version ClassVersion="10" checksum="2120380856"/>
-    <ioread sourceClass = "HGCSample" version="[-9]" targetClass="HGCSample" source="uint32_t value_; bool toaFired_;" target="value_">
-      <![CDATA[
-	       HGCSample tmp(HGCSample::convertV9ToV10(onfile.value_, onfile.toaFired_));
-	       *newObj=tmp;
-      ]]>
-    </ioread>
-   </class>
-
+   <class name="HGCSample"/>
    <class name="std::vector<HGCSample>"/>
 
    <!-- Not specific -->
@@ -35,4 +26,13 @@
    <class name="std::vector<PHGCSimAccumulator::Data>"/>
    <class name="std::vector<PHGCSimAccumulator::DetIdSize>"/>
    <class name="edm::Wrapper<PHGCSimAccumulator>"/>
+
+   <class name="PreMixSimAccumulator"/>
+   <class name="PreMixSimAccumulator::DetIdSize"/>
+   <class name="PreMixSimAccumulator::SimHitCollection"/>
+   <class name="std::vector<PreMixSimAccumulator::DetIdSize>"/>
+   <class name="std::vector<PreMixSimAccumulator::SimHitCollection>"/>
+   <class name="edm::Wrapper<PreMixSimAccumulator>"/>
+
+
 </lcgdict>
