@@ -1,0 +1,15 @@
+<library name="RecHitsValidator" file="HeterogeneousHGCalRecHitsValidator.cc">
+  <use name="cuda"/>
+  <use name="HeterogeneousCore/CUDACore"/>
+  <use name="HeterogeneousCore/CUDAUtilities"/>
+  <use name="DataFormats/HcalDetId"/>
+  <use name="FWCore/Framework"/>
+  <use name="FWCore/MessageLogger"/>
+  <use name="FWCore/Utilities"/>
+  <use name="RecoLocalCalo/HGCalRecAlgos"/>
+  <use name="RecoLocalCalo/HGCalRecProducers"/>
+  <use name="Geometry/HGCalGeometry"/>
+  <use name="Geometry/HGCalCommonData"/>
+  <use name="UserCode/RecHitsValidator"/>
+  <flags EDM_PLUGIN="1"/>
+</library>
