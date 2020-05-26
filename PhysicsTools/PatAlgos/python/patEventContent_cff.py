@@ -40,7 +40,6 @@ patExtraAodEventContent = [
     'keep GenRunInfoProduct_*_*_*',
     # RECO
     'keep recoTracks_generalTracks*_*_*',
-    'keep *_towerMaker_*_*',
     'keep *_offlineBeamSpot_*_*',
     'keep *_offlinePrimaryVertices*_*_*',
     # TRIGGER
