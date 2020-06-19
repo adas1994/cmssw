@@ -1,4 +1,5 @@
 import FWCore.ParameterSet.Config as cms
+import os, glob
 
 enableGPU = True
 from Configuration.ProcessModifiers.gpu_cff import gpu
@@ -13,7 +14,7 @@ process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 #process.load('Configuration.EventContent.EventContent_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
-process.load('Configuration.Geometry.GeometryExtended2026D46Reco_cff')
+process.load('Configuration.Geometry.GeometryExtended2026D49Reco_cff')
 process.load('HeterogeneousCore.CUDAServices.CUDAService_cfi')
 process.load('RecoLocalCalo.HGCalRecProducers.HGCalRecHit_cfi')
 process.load('SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi')
@@ -24,9 +25,13 @@ process.TFileService = cms.Service("TFileService",
                                )
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32( 10 ))
+    input = cms.untracked.int32( 5 ))
 
-fNames = ['file:/afs/cern.ch/user/b/bfontana/CMSSW_11_1_0_pre6/src/20495.0_CloseByPGun_CE_E_Front_200um+CE_E_Front_200um_2026D41_GenSimHLBeamSpotFull+DigiFullTrigger_2026D41+RecoFullGlobal_2026D41+HARVESTFullGlobal_2026D41/step3.root']
+indir = '/afs/cern.ch/user/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal'
+file_wildcard = 'step3.root'
+glob = glob.glob( os.path.join(indir, file_wildcard) )
+fNames = ['file:' + it for it in glob][:]
+
 keep = 'keep *'
 drop = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
 process.source = cms.Source("PoolSource",
@@ -36,55 +41,47 @@ process.source = cms.Source("PoolSource",
 
 process.options = cms.untracked.PSet(
     wantSummary = cms.untracked.bool( False )) #add option for edmStreams
-process.HeterogeneousHGCalEERecHitProducer = cms.EDProducer('HeterogeneousHGCalEERecHitProducer',
-                                                            HGCEEUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCEEUncalibRecHits'),
-                                                            HGCEE_keV2DIGI = HGCalRecHit.__dict__['HGCEE_keV2DIGI'],
-                                                            minValSiPar    = HGCalRecHit.__dict__['minValSiPar'],
-                                                            maxValSiPar    = HGCalRecHit.__dict__['maxValSiPar'],
-                                                            constSiPar     = HGCalRecHit.__dict__['constSiPar'],
-                                                            noiseSiPar     = HGCalRecHit.__dict__['noiseSiPar'],
-                                                            HGCEE_fCPerMIP = HGCalRecHit.__dict__['HGCEE_fCPerMIP'],
-                                                            HGCEE_isSiFE   = HGCalRecHit.__dict__['HGCEE_isSiFE'],
-                                                            HGCEE_noise_fC = HGCalRecHit.__dict__['HGCEE_noise_fC'],
-                                                            HGCEE_cce      = HGCalRecHit.__dict__['HGCEE_cce'],
-                                                            rangeMatch     = HGCalRecHit.__dict__['rangeMatch'],
-                                                            rangeMask      = HGCalRecHit.__dict__['rangeMask'],
-                                                            rcorr          = HGCalRecHit.__dict__['thicknessCorrection'],
-                                                            weights        = HGCalRecHit.__dict__['layerWeights']
+
+process.HeterogeneousHGCalEERecHits = cms.EDProducer('HeterogeneousHGCalEERecHitProducer',
+                                                     HGCEEUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCEEUncalibRecHits'),
+                                                     HGCEE_keV2DIGI = HGCalRecHit.__dict__['HGCEE_keV2DIGI'],
+                                                     minValSiPar    = HGCalRecHit.__dict__['minValSiPar'],
+                                                     maxValSiPar    = HGCalRecHit.__dict__['maxValSiPar'],
+                                                     constSiPar     = HGCalRecHit.__dict__['constSiPar'],
+                                                     noiseSiPar     = HGCalRecHit.__dict__['noiseSiPar'],
+                                                     HGCEE_fCPerMIP = HGCalRecHit.__dict__['HGCEE_fCPerMIP'],
+                                                     HGCEE_isSiFE   = HGCalRecHit.__dict__['HGCEE_isSiFE'],
+                                                     HGCEE_noise_fC = HGCalRecHit.__dict__['HGCEE_noise_fC'],
+                                                     HGCEE_cce      = HGCalRecHit.__dict__['HGCEE_cce'],
+                                                     rcorr          = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][0:3] ),
+                                                     weights        = HGCalRecHit.__dict__['layerWeights']
 )
-process.HeterogeneousHGCalHEFRecHitProducer = cms.EDProducer('HeterogeneousHGCalHEFRecHitProducer',
-                                                             HGCHEFUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEFUncalibRecHits'),
-                                                             HGCHEF_keV2DIGI  = HGCalRecHit.__dict__['HGCHEF_keV2DIGI'],
-                                                             minValSiPar     = HGCalRecHit.__dict__['minValSiPar'],
-                                                             maxValSiPar     = HGCalRecHit.__dict__['maxValSiPar'],
-                                                             constSiPar      = HGCalRecHit.__dict__['constSiPar'],
-                                                             noiseSiPar      = HGCalRecHit.__dict__['noiseSiPar'],
-                                                             HGCHEF_fCPerMIP = HGCalRecHit.__dict__['HGCHEF_fCPerMIP'],
-                                                             HGCHEF_isSiFE   = HGCalRecHit.__dict__['HGCHEF_isSiFE'],
-                                                             HGCHEF_noise_fC = HGCalRecHit.__dict__['HGCHEF_noise_fC'],
-                                                             HGCHEF_cce      = HGCalRecHit.__dict__['HGCHEF_cce'],
-                                                             rangeMatch      = HGCalRecHit.__dict__['rangeMatch'],
-                                                             rangeMask       = HGCalRecHit.__dict__['rangeMask'],
-                                                             rcorr           = HGCalRecHit.__dict__['thicknessCorrection'],
-                                                             weights         = HGCalRecHit.__dict__['layerWeights']
-                                                         )
-process.HeterogeneousHGCalHEBRecHitProducer = cms.EDProducer('HeterogeneousHGCalHEBRecHitProducer',
-                                                             HGCHEBUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEBUncalibRecHits'),
-                                                             HGCHEB_keV2DIGI  = HGCalRecHit.__dict__['HGCHEB_keV2DIGI'],
-                                                             HGCHEB_noise_MIP = HGCalRecHit.__dict__['HGCHEB_noise_MIP'],
-                                                             minValSiPar      = HGCalRecHit.__dict__['minValSiPar'],
-                                                             maxValSiPar      = HGCalRecHit.__dict__['maxValSiPar'],
-                                                             constSiPar       = HGCalRecHit.__dict__['constSiPar'],
-                                                             noiseSiPar       = HGCalRecHit.__dict__['noiseSiPar'],
-                                                             HGCHEB_isSiFE    = HGCalRecHit.__dict__['HGCHEB_isSiFE'],
-                                                             rangeMatch       = HGCalRecHit.__dict__['rangeMatch'],
-                                                             rangeMask        = HGCalRecHit.__dict__['rangeMask'],
-                                                             weights          = HGCalRecHit.__dict__['layerWeights']
-                                                         )
+
+process.HeterogeneousHGCalHEFCellPositionsFiller = cms.ESProducer("HeterogeneousHGCalHEFCellPositionsFiller")
+process.HeterogeneousHGCalHEFRecHits = cms.EDProducer('HeterogeneousHGCalHEFRecHitProducer',
+                                                      HGCHEFUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEFUncalibRecHits'),
+                                                      HGCHEF_keV2DIGI  = HGCalRecHit.__dict__['HGCHEF_keV2DIGI'],
+                                                      minValSiPar     = HGCalRecHit.__dict__['minValSiPar'],
+                                                      maxValSiPar     = HGCalRecHit.__dict__['maxValSiPar'],
+                                                      constSiPar      = HGCalRecHit.__dict__['constSiPar'],
+                                                      noiseSiPar      = HGCalRecHit.__dict__['noiseSiPar'],
+                                                      HGCHEF_fCPerMIP = HGCalRecHit.__dict__['HGCHEF_fCPerMIP'],
+                                                      HGCHEF_isSiFE   = HGCalRecHit.__dict__['HGCHEF_isSiFE'],
+                                                      HGCHEF_noise_fC = HGCalRecHit.__dict__['HGCHEF_noise_fC'],
+                                                      HGCHEF_cce      = HGCalRecHit.__dict__['HGCHEF_cce'],
+                                                      rcorr           = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][3:6] ),
+                                                      weights         = HGCalRecHit.__dict__['layerWeights'] )
+
+process.HeterogeneousHGCalHEBRecHits = cms.EDProducer('HeterogeneousHGCalHEBRecHitProducer',
+                                                      HGCHEBUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEBUncalibRecHits'),
+                                                      HGCHEB_keV2DIGI  = HGCalRecHit.__dict__['HGCHEB_keV2DIGI'],
+                                                      HGCHEB_noise_MIP = HGCalRecHit.__dict__['HGCHEB_noise_MIP'],
+                                                      weights          = HGCalRecHit.__dict__['layerWeights'] )
+process.HGCalRecHits = HGCalRecHit.clone()
 
 fNameOut = 'out'
-#process.task = cms.Task( process.HeterogeneousHGCalEERecHitProducer, process.HeterogeneousHGCalHEFRecHitProducer )
-process.task = cms.Task( process.HeterogeneousHGCalHEFRecHitProducer )
+process.task = cms.Task( process.HeterogeneousHGCalHEFCellPositionsFiller, process.HeterogeneousHGCalHEFRecHits )
+#process.task = cms.Task( process.HGCalRecHits, process.HeterogeneousHGCalHEFRecHits )
 process.path = cms.Path( process.task )
 
 process.out = cms.OutputModule("PoolOutputModule",

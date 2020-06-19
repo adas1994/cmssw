@@ -6,27 +6,35 @@ HeterogeneousHGCalHEFRecHitProducer::HeterogeneousHGCalHEFRecHitProducer(const e
   cdata_.keV2DIGI_          = ps.getParameter<double>("HGCHEF_keV2DIGI");
   cdata_.xmin_              = ps.getParameter<double>("minValSiPar"); //float
   cdata_.xmax_              = ps.getParameter<double>("maxValSiPar"); //float
-  cdata_.aterm_             = ps.getParameter<double>("constSiPar"); //float
-  cdata_.cterm_             = ps.getParameter<double>("noiseSiPar"); //float
+  cdata_.aterm_             = ps.getParameter<double>("noiseSiPar"); //float
+  cdata_.cterm_             = ps.getParameter<double>("constSiPar"); //float
   vdata_.fCPerMIP_          = ps.getParameter< std::vector<double> >("HGCHEF_fCPerMIP");
   vdata_.cce_               = ps.getParameter<edm::ParameterSet>("HGCHEF_cce").getParameter<std::vector<double> >("values");
   vdata_.noise_fC_          = ps.getParameter<edm::ParameterSet>("HGCHEF_noise_fC").getParameter<std::vector<double> >("values");
   vdata_.rcorr_             = ps.getParameter< std::vector<double> >("rcorr");
   vdata_.weights_           = ps.getParameter< std::vector<double> >("weights");
   cdata_.uncalib2GeV_ = 1e-6 / cdata_.keV2DIGI_;
-
   assert_sizes_constants_(vdata_);
-  //xyz_ = new hgcal_conditions::positions::HGCalPositions();
-  posmap_ = new hgcal_conditions::positions::HGCalPositionsMapping();
-  tools_.reset(new hgcal::RecHitTools());
+
+  uncalibSoA_        = new HGCUncalibratedRecHitSoA();
+  d_uncalibSoA_      = new HGCUncalibratedRecHitSoA();
+  d_intermediateSoA_ = new HGCUncalibratedRecHitSoA();
+  d_calibSoA_        = new HGCRecHitSoA();
+  calibSoA_          = new HGCRecHitSoA();
+  kcdata_            = new KernelConstantData<HGChefUncalibratedRecHitConstantData>(cdata_, vdata_);
+  kmdata_            = new KernelModifiableData<HGCUncalibratedRecHitSoA, HGCRecHitSoA>(uncalibSoA_, d_uncalibSoA_, d_intermediateSoA_, d_calibSoA_, calibSoA_);
+
+  tools_ = std::make_unique<hgcal::RecHitTools>();
   produces<HGChefRecHitCollection>(collection_name_);
 
+  /*
   x0 = fs->make<TH1F>( "x_type0"  , "x_type0", 300, -120., 120. );
   y0 = fs->make<TH1F>( "y_type0"  , "y_type0", 300, -120., 120. );
   x1 = fs->make<TH1F>( "x_type1"  , "x_type1", 300, -120., 120. );
   y1 = fs->make<TH1F>( "y_type1"  , "y_type1", 300, -120., 120. );
   x2 = fs->make<TH1F>( "x_type2"  , "x_type2", 300, -120., 120. );
   y2 = fs->make<TH1F>( "y_type2"  , "y_type2", 300, -120., 120. );
+  */
 }
 
 HeterogeneousHGCalHEFRecHitProducer::~HeterogeneousHGCalHEFRecHitProducer()
@@ -38,186 +46,97 @@ HeterogeneousHGCalHEFRecHitProducer::~HeterogeneousHGCalHEFRecHitProducer()
   delete d_intermediateSoA_;
   delete d_calibSoA_;
   delete calibSoA_;
-  //delete xyz_;
-  delete posmap_;
 }
 
-std::string HeterogeneousHGCalHEFRecHitProducer::assert_error_message_(std::string var, const size_t& s)
+std::string HeterogeneousHGCalHEFRecHitProducer::assert_error_message_(std::string var, const size_t& s1, const size_t& s2)
 {
   std::string str1 = "The '";
   std::string str2 = "' array must be at least of size ";
-  std::string str3 = " to hold the configuration data.";
-  return str1 + var + str2 + std::to_string(s) + str3;
+  std::string str3 = " to hold the configuration data, but is of size ";
+  return str1 + var + str2 + std::to_string(s1) + str3 + std::to_string(s2);
 }
 
 void HeterogeneousHGCalHEFRecHitProducer::assert_sizes_constants_(const HGCConstantVectorData& vd)
 {
   if( vdata_.fCPerMIP_.size() > maxsizes_constants::hef_fCPerMIP )
-    cms::cuda::LogError("MaxSizeExceeded") << this->assert_error_message_("fCPerMIP", vdata_.fCPerMIP_.size());
+    cms::cuda::LogError("WrongSize") << this->assert_error_message_("fCPerMIP", maxsizes_constants::hef_fCPerMIP, vdata_.fCPerMIP_.size());
   else if( vdata_.cce_.size() > maxsizes_constants::hef_cce )
-    cms::cuda::LogError("MaxSizeExceeded") << this->assert_error_message_("cce", vdata_.cce_.size());
+    cms::cuda::LogError("WrongSize") << this->assert_error_message_("cce", maxsizes_constants::hef_cce, vdata_.cce_.size());
   else if( vdata_.noise_fC_.size() > maxsizes_constants::hef_noise_fC )
-    cms::cuda::LogError("MaxSizeExceeded") << this->assert_error_message_("noise_fC", vdata_.noise_fC_.size());
-  else if( vdata_.rcorr_.size() > maxsizes_constants::hef_rcorr ) 
-    cms::cuda::LogError("MaxSizeExceeded") << this->assert_error_message_("rcorr", vdata_.rcorr_.size());
+    cms::cuda::LogError("WrongSize") << this->assert_error_message_("noise_fC", maxsizes_constants::hef_noise_fC, vdata_.noise_fC_.size());
+  else if( vdata_.rcorr_.size() > maxsizes_constants::hef_rcorr )
+    cms::cuda::LogError("WrongSize") << this->assert_error_message_("rcorr", maxsizes_constants::hef_rcorr, vdata_.rcorr_.size());
   else if( vdata_.weights_.size() > maxsizes_constants::hef_weights ) 
-    cms::cuda::LogError("MaxSizeExceeded") << this->assert_error_message_("weights", vdata_.weights_.size());
+    cms::cuda::LogError("WrongSize") << this->assert_error_message_("weights", maxsizes_constants::hef_weights, vdata_.weights_.size());
+}
+
+void HeterogeneousHGCalHEFRecHitProducer::beginRun(edm::Run const&, edm::EventSetup const& setup) {
+  edm::ESHandle<CaloGeometry> baseGeom;
+  setup.get<CaloGeometryRecord>().get(baseGeom);
+  tools_->setGeometry(*baseGeom);
+  
+  std::string handle_str = "HGCalHESiliconSensitive";
+  edm::ESHandle<HGCalGeometry> handle;
+  setup.get<IdealGeometryRecord>().get(handle_str, handle);
+  
+  ddd_ = &( handle->topology().dddConstants() );
+  params_ = ddd_->getParameter();
+  cdata_.layerOffset_ = params_->layerOffset_; //=28 (6-07-2020)
 }
 
 void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::EventSetup const& setup, edm::WaitingTaskWithArenaHolder w) {
   const cms::cuda::ScopedContextAcquire ctx{event.streamID(), std::move(w), ctxState_};
 
-  set_conditions_(setup);
+  //
+  edm::ESHandle<HeterogeneousHGCalHEFCellPositionsConditions> celpos_handle;
+  setup.get<HeterogeneousHGCalHEFCellPositionsConditionsRecord>().get(celpos_handle);
+  hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct const * celpos = celpos_handle->getHeterogeneousConditionsESProductAsync( 0 );
+  //
+    
+  /*
   HeterogeneousHGCalHEFConditionsWrapper esproduct(params_, posmap_);
   d_conds = esproduct.getHeterogeneousConditionsESProductAsync(ctx.stream());
+  */
 
   event.getByToken(token_, handle_hef_);
   const auto &hits_hef = *handle_hef_;
 
   unsigned int nhits = hits_hef.size();
   stride_ = ( (nhits-1)/32 + 1 ) * 32; //align to warp boundary
-  allocate_memory_();
-
-  kcdata_ = new KernelConstantData<HGChefUncalibratedRecHitConstantData>(cdata_, vdata_);
-  convert_constant_data_(kcdata_);
-  convert_collection_data_to_soa_(hits_hef, uncalibSoA_, nhits);
-  kmdata_ = new KernelModifiableData<HGCUncalibratedRecHitSoA, HGCRecHitSoA>(nhits, stride_, uncalibSoA_, d_uncalibSoA_, d_intermediateSoA_, d_calibSoA_, calibSoA_);
-  KernelManagerHGCalRecHit kernel_manager(kmdata_);
-  std::cout << "CHECK before run kernels "  << std::endl;
-  kernel_manager.run_kernels(kcdata_, d_conds);
-
   rechits_ = std::make_unique<HGCRecHitCollection>();
-  convert_soa_data_to_collection_(*rechits_, calibSoA_, nhits);
-}
 
-void HeterogeneousHGCalHEFRecHitProducer::set_conditions_(const edm::EventSetup& setup) {
-  tools_->getEventSetup(setup);
-  std::string handle_str;
-  handle_str = "HGCalHESiliconSensitive";
-  edm::ESHandle<HGCalGeometry> handle;
-  setup.get<IdealGeometryRecord>().get(handle_str, handle);
-  ddd_ = &( handle->topology().dddConstants() );
-  params_ = ddd_->getParameter();
+  if(stride_ > 0)
+    {
+      kmdata_->nhits_  = nhits;
+      kmdata_->stride_ = stride_;
+      allocate_memory_(ctx.stream());
+      convert_constant_data_(kcdata_);
+      convert_collection_data_to_soa_(hits_hef, kmdata_);
 
-  /* Geometry Inspection
-  int counter = 0;
-  while(counter < 1000) {
-    int lay=1, waferU=4, waferV=2, cellU=8, cellV=7;
-    if(ddd_->isValidHex8(lay, counter, waferV, cellU, cellV))
-      {
-	//float loc_first = (ddd_->locateCell(lay, counter, waferV, cellU, cellV, true, false, true)).first;
-	std::cout << ddd_->firstLayer() << ", " << ddd_->lastLayer(true) <<  std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->layerIndex(1, true) << ", " << ddd_->layerIndex(5, true) <<  ", " << ddd_->layerIndex(10, true) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->numberCells(1, true)[0] << ", " << ddd_->numberCells(1, true).size() << ", " << ddd_->numberCells(5, true).size() << ", " << ddd_->numberCells(10, true).size() << ", " << ddd_->numberCells(true) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->numberCellsHexagon(1, waferU, waferV, false) << ", " <<ddd_->numberCellsHexagon(5, waferU, waferV, false) << ", " << ddd_->numberCellsHexagon(10, waferU, waferV, false) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << HGCalWaferIndex::waferIndex(lay, waferU, waferV) << ", " << ddd_->waferInLayer( HGCalWaferIndex::waferIndex(lay, waferU, waferV), 1, true) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->waferCount(0) << ", " << ddd_->waferCount(1) << ", " << ddd_->waferCount(2) << ", " << ddd_->waferCount(3) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->waferZ(1, true) << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << ddd_->waferMax() << ", " <<  ddd_->waferMin() << std::endl;
-	std::cout << " *** " <<  std::endl;
-	std::cout << lay << ", " <<  counter << ", " << waferV << ", " << cellU << ", " << cellV << std::endl;
-	std::cout << " --------- " << std::endl;
-	std::cout << " --------- " << std::endl;
-      }
-    counter += 1;
-  }
-  std::exit(0);
-  */
+      KernelManagerHGCalRecHit kernel_manager(kmdata_);
+      kernel_manager.run_kernels(kcdata_, ctx.stream());
 
-  //fill the CPU position structure from the geometry
-  posmap_->numberCellsHexagon.clear();
-  posmap_->detid.clear();
-
-  int upper_estimate_wafer_number  = 2 * ddd_->lastLayer(true) * (ddd_->waferMax() - ddd_->waferMin());
-  int upper_estimate_cell_number = upper_estimate_wafer_number * 24 * 24; 
-  posmap_->numberCellsHexagon.reserve(upper_estimate_wafer_number);
-  posmap_->detid.reserve(upper_estimate_cell_number);
-  //set postions-related variables
-  posmap_->firstLayer = ddd_->firstLayer();
-  assert( posmap_->firstLayer==1 ); //otherwise the loop over the layers has to be changed
-  posmap_->lastLayer  = ddd_->lastLayer(true);
-  posmap_->waferMin   = ddd_->waferMin();
-  posmap_->waferMax   = ddd_->waferMax();
-
-  //store detids following a geometry ordering
-  for(int iside=-1; iside<=1; iside = iside+2) {
-    for(int ilayer=1; ilayer<=posmap_->lastLayer; ++ilayer) {
-      //float z_ = iside<0 ? -1.f * static_cast<float>( ddd_->waferZ(ilayer, true) ) : static_cast<float>( ddd_->waferZ(ilayer, true) ); //originally a double
-    
-      for(int iwaferU=posmap_->waferMin; iwaferU<posmap_->waferMax; ++iwaferU) {
-	for(int iwaferV=posmap_->waferMin; iwaferV<posmap_->waferMax; ++iwaferV) {
-	  int type_ = ddd_->waferType(ilayer, iwaferU, iwaferV); //0: fine; 1: coarseThin; 2: coarseThick (as defined in DataFormats/ForwardDetId/interface/HGCSiliconDetId.h)
-
-	  int nCellsHex = ddd_->numberCellsHexagon(ilayer, iwaferU, iwaferV, false);
-	  posmap_->numberCellsHexagon.push_back( nCellsHex );
-	  
-	  for(int icellU=0; icellU<2*nCellsHex; ++icellU) {
-	    for(int icellV=0; icellV<2*nCellsHex; ++icellV)
-	      {
-		uint32_t detid_ = HGCSiliconDetId(DetId::HGCalHSi, iside, type_, ilayer, iwaferU, iwaferV, icellU, icellV);
-		posmap_->detid.push_back( detid_ );
-		
-		/*
-		GlobalPoint point = tools_->getPosition(detid_);
-		xyz_->x.push_back( point.x() );
-		xyz_->y.push_back( point.y() );
-		xyz_->z.push_back( z_ );
-		*/
-      
-		/*
-		if(type_==0 and point.x()!=0. and point.y()!=0.) {
-		  x0->Fill( point.x() );
-		  y0->Fill( point.y() );
-		}
-		else if(type_==1 and point.x()!=0. and point.y()!=0.) {
-		  x1->Fill( point.x() );
-		  y1->Fill( point.y() );
-		}
-		else if(type_==2 and point.x()!=0. and point.y()!=0.) {
-		  x2->Fill( point.x() );
-		  y2->Fill( point.y() );
-		}
-		*/
-		//std::cout << iside << ":" << type_ << ":" << ilayer << ":" << iwaferU << ":" << iwaferV << ":" << icellU << ":" << icellV << ":" << std::endl;
-		//std::cout << point.x() << ":" << point_opp.x() << ", " << point.y() << ":" << point_opp.y() << ", " << z_ << std::endl;
-		//std::cout << xy_.first << ":" << xy_.second << std::endl;
-	      }
-	  }
-
-	}
-      }
+      //KernelManagerHGCalCellPositions kernel_manager_celpos( 1 ); //test with one single item (one block of one thread)
+      //kernel_manager_celpos.test_cell_positions( celpos );
     }
-  }
-
 }
 
 void HeterogeneousHGCalHEFRecHitProducer::produce(edm::Event& event, const edm::EventSetup& setup)
 {
   cms::cuda::ScopedContextProduce ctx{ctxState_}; //only for GPU to GPU producers
+
+  convert_soa_data_to_collection_(*rechits_, kmdata_);
   event.put(std::move(rechits_), collection_name_);
 }
 
-void HeterogeneousHGCalHEFRecHitProducer::allocate_memory_()
+void HeterogeneousHGCalHEFRecHitProducer::allocate_memory_(const cudaStream_t& stream)
 {
-  uncalibSoA_        = new HGCUncalibratedRecHitSoA();
-  d_uncalibSoA_      = new HGCUncalibratedRecHitSoA();
-  d_intermediateSoA_ = new HGCUncalibratedRecHitSoA();
-  d_calibSoA_        = new HGCRecHitSoA();
-  calibSoA_          = new HGCRecHitSoA();
-
   //_allocate memory for hits on the host
-  memory::allocation::host(stride_, uncalibSoA_, mem_in_);
+  memory::allocation::host(stride_, uncalibSoA_, mem_in_, stream);
   //_allocate memory for hits on the device
-  memory::allocation::device(stride_, d_uncalibSoA_, d_intermediateSoA_, d_calibSoA_, d_mem_);
+  memory::allocation::device(stride_, d_uncalibSoA_, d_intermediateSoA_, d_calibSoA_, d_mem_, stream);
   //_allocate memory for hits on the host
-  memory::allocation::host(stride_, calibSoA_, mem_out_);
+  memory::allocation::host(stride_, calibSoA_, mem_out_, stream);
 }
 
 void HeterogeneousHGCalHEFRecHitProducer::convert_constant_data_(KernelConstantData<HGChefUncalibratedRecHitConstantData> *kcdata)
@@ -234,29 +153,29 @@ void HeterogeneousHGCalHEFRecHitProducer::convert_constant_data_(KernelConstantD
     kcdata->data_.weights_[i] = kcdata->vdata_.weights_[i];
 }
 
-void HeterogeneousHGCalHEFRecHitProducer::convert_collection_data_to_soa_(const HGChefUncalibratedRecHitCollection& hits, HGCUncalibratedRecHitSoA* d, const unsigned int& nhits)
+void HeterogeneousHGCalHEFRecHitProducer::convert_collection_data_to_soa_(const HGChefUncalibratedRecHitCollection& hits, KernelModifiableData<HGCUncalibratedRecHitSoA, HGCRecHitSoA>* kmdata)
 {
-  for(unsigned int i=0; i<nhits; ++i)
+  for(unsigned int i=0; i<kmdata->nhits_; ++i)
     {
-      d->amplitude_[i] = hits[i].amplitude();
-      d->pedestal_[i] = hits[i].pedestal();
-      d->jitter_[i] = hits[i].jitter();
-      d->chi2_[i] = hits[i].chi2();
-      d->OOTamplitude_[i] = hits[i].outOfTimeEnergy();
-      d->OOTchi2_[i] = hits[i].outOfTimeChi2();
-      d->flags_[i] = hits[i].flags();
-      d->aux_[i] = 0;
-      d->id_[i] = hits[i].id().rawId();
+      kmdata->h_in_->amplitude_[i]    = hits[i].amplitude();
+      kmdata->h_in_->pedestal_[i]     = hits[i].pedestal();
+      kmdata->h_in_->jitter_[i]       = hits[i].jitter();
+      kmdata->h_in_->chi2_[i]         = hits[i].chi2();
+      kmdata->h_in_->OOTamplitude_[i] = hits[i].outOfTimeEnergy();
+      kmdata->h_in_->OOTchi2_[i]      = hits[i].outOfTimeChi2();
+      kmdata->h_in_->flags_[i]        = hits[i].flags();
+      kmdata->h_in_->aux_[i]          = 0;
+      kmdata->h_in_->id_[i]           = hits[i].id().rawId();
     }
 }
 
-void HeterogeneousHGCalHEFRecHitProducer::convert_soa_data_to_collection_(HGCRecHitCollection& rechits, HGCRecHitSoA *d, const unsigned int& nhits)
+void HeterogeneousHGCalHEFRecHitProducer::convert_soa_data_to_collection_(HGCRecHitCollection& rechits, KernelModifiableData<HGCUncalibratedRecHitSoA, HGCRecHitSoA>* kmdata)
 {
-  rechits.reserve(nhits);
-  for(uint i=0; i<nhits; ++i)
+  rechits.reserve(kmdata->nhits_);
+  for(uint i=0; i<kmdata->nhits_; ++i)
     {
-      DetId id_converted( d->id_[i] );
-      rechits.emplace_back( HGCRecHit(id_converted, d->energy_[i], d->time_[i], 0, d->flagBits_[i]) );
+      DetId id_converted( kmdata->h_out_->id_[i] );
+      rechits.emplace_back( HGCRecHit(id_converted, kmdata->h_out_->energy_[i], kmdata->h_out_->time_[i], 0, kmdata->h_out_->flagBits_[i], kmdata->h_out_->son_[i], kmdata->h_out_->timeError_[i]) );
     }
 }
 
