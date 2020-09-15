@@ -26,8 +26,6 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 from RecoLocalCalo.HGCalRecProducers.HGCalRecHit_cfi import dEdX_weights_v10
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
-#process.Tracer = cms.Service("Tracer")
-
 #TFileService
 fileName = 'switch.root'
 process.TFileService = cms.Service("TFileService", 
@@ -44,7 +42,8 @@ process.source = cms.Source("PoolSource",
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"))
 
 process.options = cms.untracked.PSet(
-    wantSummary = cms.untracked.bool( True ) ) #add option for edmStreams
+    wantSummary = cms.untracked.bool( False )) #add option for edmStreams
+
 
 
 process.HeterogeneousHGCalEERecHits = HeterogeneousHGCalEERecHits.clone()
