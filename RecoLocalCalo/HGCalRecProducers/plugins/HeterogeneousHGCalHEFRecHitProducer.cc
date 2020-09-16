@@ -87,16 +87,9 @@ void HeterogeneousHGCalHEFRecHitProducer::beginRun(edm::Run const&, edm::EventSe
 void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::EventSetup const& setup, edm::WaitingTaskWithArenaHolder w) {
   const cms::cuda::ScopedContextAcquire ctx{event.streamID(), std::move(w), ctxState_};
 
-  //
   edm::ESHandle<HeterogeneousHGCalHEFCellPositionsConditions> celpos_handle;
   setup.get<HeterogeneousHGCalHEFCellPositionsConditionsRecord>().get(celpos_handle);
-  hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct const * celpos = celpos_handle->getHeterogeneousConditionsESProductAsync( 0 );
-  //
-    
-  /*
-  HeterogeneousHGCalHEFConditionsWrapper esproduct(params_, posmap_);
-  d_conds = esproduct.getHeterogeneousConditionsESProductAsync(ctx.stream());
-  */
+  celpos = celpos_handle->getHeterogeneousConditionsESProductAsync( 0 );
 
   event.getByToken(token_, handle_hef_);
   const auto &hits_hef = *handle_hef_;
@@ -113,11 +106,20 @@ void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::
       convert_constant_data_(kcdata_);
       convert_collection_data_to_soa_(hits_hef, kmdata_);
 
-      KernelManagerHGCalRecHit kernel_manager(kmdata_);
-      kernel_manager.run_kernels(kcdata_, ctx.stream());
+      KernelManagerHGCalRecHit km(kmdata_);
+      km.run_kernels(kcdata_, ctx.stream());
 
-      //KernelManagerHGCalCellPositions kernel_manager_celpos( 1 ); //test with one single item (one block of one thread)
-      //kernel_manager_celpos.test_cell_positions( celpos );
+      for(unsigned i=0; i<10; ++i)
+	{
+	  unsigned testId = hits_hef[i].id().rawId();
+	  std::cout << "Testing Id " << testId << std::endl;
+
+	  HGCSiliconDetId testIdObj(testId);
+	  std::pair<double, double> testPos = ddd_->locateCell(testIdObj.layer(), testIdObj.waferU(), testIdObj.waferV(), testIdObj.cellU(), testIdObj.cellV(), true, true, false);
+	  std::cout << "Real positions: " << testPos.first << ", " << testPos.second << std::endl;
+	  KernelManagerHGCalCellPositions km2( 1 ); //test with one single item (one block with some threads)
+	  km2.test_cell_positions( testId, celpos );
+	}
     }
 }
 

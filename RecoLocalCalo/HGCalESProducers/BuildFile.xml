@@ -12,6 +12,7 @@
 <use name="DataFormats/ForwardDetId"/>
 <use name="CommonTools/UtilAlgos"/>
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
+<use name="RecoLocalCalo/HGCalESProducers"/>
 <use name="HeterogeneousCore/CUDACore"/>
 <use name="HeterogeneousCore/CUDAUtilities"/>
 <use name="clhep"/>

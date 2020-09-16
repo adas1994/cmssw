@@ -6,7 +6,7 @@
 #include "DataFormats/DetId/interface/DetId.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/cudaCompat.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/cudaCheck.h"
-#include "RecoLocalCalo/HGCalESProducers/plugins/HGCalCellPositionsKernelImpl.cuh"
+#include "RecoLocalCalo/HGCalRecProducers/plugins/HGCalCellPositionsKernelImpl.cuh"
 #include "CUDADataFormats/HGCal/interface/HGCConditions.h"
 
 #include <vector>
@@ -31,7 +31,7 @@ class KernelManagerHGCalCellPositions {
   KernelManagerHGCalCellPositions(const size_t&);
 
   void fill_positions(const hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct*);
-  void test_cell_positions(const hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct*);
+  void test_cell_positions(unsigned, const hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct*);
 };
 
 #endif //RecoLocalCalo_HGCalESProducers_KernelManagerHGCalCellPositions_h

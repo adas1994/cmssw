@@ -10,6 +10,7 @@
 #include "CUDADataFormats/HGCal/interface/HGCConditions.h"
 #include "Geometry/HGCalCommonData/interface/HGCalDDDConstants.h"
 #include "Geometry/HGCalCommonData/interface/HGCalParameters.h"
+#include "RecoLocalCalo/HGCalRecProducers/plugins/KernelManagerHGCalCellPositions.h"
 
 namespace cpar = hgcal_conditions::parameters;
 namespace cpos = hgcal_conditions::positions;  
@@ -34,14 +35,14 @@ class HeterogeneousHGCalHEFCellPositionsConditions {
   cpos::HeterogeneousHGCalPositionsMapping posmap_;
   size_t nelems_posmap_;
 
-  std::vector<size_t> sizes_pos_;
-  size_t chunk_pos_;
+  std::vector<size_t> sizes_;
+  size_t chunk_;
   const size_t number_position_arrays = 2; //x and y; required due to the assymetry between cpos::HeterogeneousHGCalPositionsMapping and cpos::HGCalPositionsMapping
   
-  std::vector<size_t> calculate_memory_bytes_pos_(cpos::HGCalPositionsMapping*);
-  size_t allocate_memory_pos_(const std::vector<size_t>&);
-  void transfer_data_to_heterogeneous_pointers_pos_(const std::vector<size_t>&, cpos::HGCalPositionsMapping*);
-  void transfer_data_to_heterogeneous_vars_pos_(const cpos::HGCalPositionsMapping*);
+  std::vector<size_t> calculate_memory_bytes_(cpos::HGCalPositionsMapping*);
+  size_t allocate_memory_(const std::vector<size_t>&);
+  void transfer_data_to_heterogeneous_pointers_(const std::vector<size_t>&, cpos::HGCalPositionsMapping*);
+  void transfer_data_to_heterogeneous_vars_(const cpos::HGCalPositionsMapping*);
 
   /*methods for managing SoA's pointers*/
   //float

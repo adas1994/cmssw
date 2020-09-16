@@ -25,7 +25,7 @@ process.TFileService = cms.Service("TFileService",
                                )
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32( 5 ))
+    input = cms.untracked.int32( 1 ))
 
 indir = '/afs/cern.ch/user/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal'
 file_wildcard = 'step3.root'
@@ -42,6 +42,7 @@ process.source = cms.Source("PoolSource",
 process.options = cms.untracked.PSet(
     wantSummary = cms.untracked.bool( False )) #add option for edmStreams
 
+"""
 process.HeterogeneousHGCalEERecHits = cms.EDProducer('HeterogeneousHGCalEERecHitProducer',
                                                      HGCEEUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCEEUncalibRecHits'),
                                                      HGCEE_keV2DIGI = HGCalRecHit.__dict__['HGCEE_keV2DIGI'],
@@ -56,10 +57,11 @@ process.HeterogeneousHGCalEERecHits = cms.EDProducer('HeterogeneousHGCalEERecHit
                                                      rcorr          = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][0:3] ),
                                                      weights        = HGCalRecHit.__dict__['layerWeights']
 )
+"""
 
 process.HeterogeneousHGCalHEFCellPositionsFiller = cms.ESProducer("HeterogeneousHGCalHEFCellPositionsFiller")
 process.HeterogeneousHGCalHEFRecHits = cms.EDProducer('HeterogeneousHGCalHEFRecHitProducer',
-                                                      HGCHEFUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEFUncalibRecHits'),
+                                                      HGCHEFUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit','HGCHEFUncalibRecHits'),
                                                       HGCHEF_keV2DIGI  = HGCalRecHit.__dict__['HGCHEF_keV2DIGI'],
                                                       minValSiPar     = HGCalRecHit.__dict__['minValSiPar'],
                                                       maxValSiPar     = HGCalRecHit.__dict__['maxValSiPar'],
@@ -72,11 +74,13 @@ process.HeterogeneousHGCalHEFRecHits = cms.EDProducer('HeterogeneousHGCalHEFRecH
                                                       rcorr           = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][3:6] ),
                                                       weights         = HGCalRecHit.__dict__['layerWeights'] )
 
+"""
 process.HeterogeneousHGCalHEBRecHits = cms.EDProducer('HeterogeneousHGCalHEBRecHitProducer',
                                                       HGCHEBUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEBUncalibRecHits'),
                                                       HGCHEB_keV2DIGI  = HGCalRecHit.__dict__['HGCHEB_keV2DIGI'],
                                                       HGCHEB_noise_MIP = HGCalRecHit.__dict__['HGCHEB_noise_MIP'],
                                                       weights          = HGCalRecHit.__dict__['layerWeights'] )
+"""
 process.HGCalRecHits = HGCalRecHit.clone()
 
 fNameOut = 'out'

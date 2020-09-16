@@ -4,9 +4,9 @@ import bokehplot as bkp
 from bokeh.models.ranges import FactorRange
 """data
 PU0, GPU: 0.005740 EE, 0.000117 HEB, 0.001656 HEF
-PU0, CPU: 0.061452  HGCalRecHits
+PU0, CPU: 0.061452 HGCalRecHits
 PU50, GPU: 0.005318 EE, 0.000125 HEB, 0.001676 HEF
-
+PU50, CPU: 0.052161 HGCalRecHits
 """
 npoints = 5
 gpu_x = np.arange(1, npoints+1)
