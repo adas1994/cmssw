@@ -1,4 +1,5 @@
 <use name="Geometry/CaloGeometry"/>
+<use name="SimCalorimetry/HGCalSimAlgos"/>
 <use name="RecoLocalCalo/HGCalRecProducers"/>
 <use name="RecoLocalCalo/HGCalRecAlgos"/>
 <use name="FWCore/Framework"/>

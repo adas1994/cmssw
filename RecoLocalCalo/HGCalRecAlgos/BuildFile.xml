@@ -9,6 +9,7 @@
 <use name="Geometry/HcalTowerAlgo"/>
 <use name="Geometry/Records"/>
 <use name="DataFormats/ParticleFlowReco"/>
+<use name="SimCalorimetry/HGCalSimAlgos"/>
 <export>
   <lib name="1"/>
 </export>

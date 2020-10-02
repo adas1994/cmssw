@@ -1,9 +1,10 @@
 import FWCore.ParameterSet.Config as cms
 
 from SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi import hgceeDigitizer, hgchefrontDigitizer, hgchebackDigitizer, hfnoseDigitizer
+from SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi import HGCal_setEndOfLifeNoise, HGCAL_ileakParam_toUse, HGCAL_cceParams_toUse
 
 fCPerMIP_v10 = cms.vdouble(2.06,3.43,5.15) #120um, 200um, 300um
-
+integLumi = 3000.
 # HGCAL producer of rechits starting from digis
 HGCalUncalibRecHit = cms.EDProducer(
     "HGCalUncalibRecHitProducer",
@@ -26,7 +27,12 @@ HGCalUncalibRecHit = cms.EDProducer(
         tdcSaturation = hgceeDigitizer.digiCfg.feCfg.tdcSaturation_fC,
         tdcOnset      = hgceeDigitizer.digiCfg.feCfg.tdcOnset_fC,
         toaLSB_ns     = hgceeDigitizer.digiCfg.feCfg.toaLSB_ns,
-        fCPerMIP      = cms.vdouble(1.25,2.57,3.88) #100um, 200um, 300um
+        fCPerMIP      = cms.vdouble(1.25,2.57,3.88), #100um, 200um, 300um 
+        doseMap           = cms.string('SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt'),
+        scaleByDoseAlgo   = cms.uint32(0),
+        scaleByDoseFactor = cms.double(integLumi/3000.),
+        ileakParam        = HGCAL_ileakParam_toUse,
+        cceParams         = HGCAL_cceParams_toUse,
         ),
     
     HGCHEFConfig = cms.PSet(
@@ -39,7 +45,12 @@ HGCalUncalibRecHit = cms.EDProducer(
         tdcSaturation = hgchefrontDigitizer.digiCfg.feCfg.tdcSaturation_fC,
         tdcOnset      = hgchefrontDigitizer.digiCfg.feCfg.tdcOnset_fC,
         toaLSB_ns     = hgchefrontDigitizer.digiCfg.feCfg.toaLSB_ns,
-        fCPerMIP      = cms.vdouble(1.25,2.57,3.88) #100um, 200um, 300um
+        fCPerMIP      = cms.vdouble(1.25,2.57,3.88), #100um, 200um, 300um
+        doseMap           = cms.string('SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt'),
+        scaleByDoseAlgo   = cms.uint32(0),
+        scaleByDoseFactor = cms.double(integLumi/3000.),
+        ileakParam        = HGCAL_ileakParam_toUse,
+        cceParams         = HGCAL_cceParams_toUse,
         ),
 
     HGCHEBConfig = cms.PSet(
@@ -52,7 +63,12 @@ HGCalUncalibRecHit = cms.EDProducer(
         tdcSaturation = hgchebackDigitizer.digiCfg.feCfg.tdcSaturation_fC,
         tdcOnset      = hgchebackDigitizer.digiCfg.feCfg.tdcOnset_fC,
         toaLSB_ns     = hgchebackDigitizer.digiCfg.feCfg.toaLSB_ns,
-        fCPerMIP      = cms.vdouble(1.0,1.0,1.0) #dummy values, it's scintillator
+        fCPerMIP      = cms.vdouble(1.0,1.0,1.0), #dummy values, it's scintillator
+        doseMap           = cms.string('SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt'),
+        scaleByDoseAlgo   = cms.uint32(0),
+        scaleByDoseFactor = cms.double(integLumi/3000.),
+        ileakParam        = HGCAL_ileakParam_toUse,
+        cceParams         = HGCAL_cceParams_toUse,
         ),
 
     HGCHFNoseConfig = cms.PSet(
@@ -65,9 +81,13 @@ HGCalUncalibRecHit = cms.EDProducer(
         tdcSaturation = hfnoseDigitizer.digiCfg.feCfg.tdcSaturation_fC,
         tdcOnset      = hfnoseDigitizer.digiCfg.feCfg.tdcOnset_fC,
         toaLSB_ns     = hfnoseDigitizer.digiCfg.feCfg.toaLSB_ns,
-        fCPerMIP      = cms.vdouble(1.25,2.57,3.88) #100um, 200um, 300um
+        fCPerMIP      = cms.vdouble(1.25,2.57,3.88), #100um, 200um, 300um
+        doseMap           = cms.string('SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.txt'),
+        scaleByDoseAlgo   = cms.uint32(0),
+        scaleByDoseFactor = cms.double(integLumi/3000.),
+        ileakParam        = HGCAL_ileakParam_toUse,
+        cceParams         = HGCAL_cceParams_toUse,
         ),
-
     algo = cms.string("HGCalUncalibRecHitWorkerWeights")
 )
 

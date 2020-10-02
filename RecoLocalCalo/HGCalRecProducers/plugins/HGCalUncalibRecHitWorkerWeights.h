@@ -35,7 +35,7 @@ public:
   bool runHGCHFNose(const HGCalDigiCollection::const_iterator& digi,
                     HGChfnoseUncalibratedRecHitCollection& result) override;
 
-protected:
+ protected:
   HGCalUncalibRecHitRecWeightsAlgo<HGCalDataFrame> uncalibMaker_ee_;
   HGCalUncalibRecHitRecWeightsAlgo<HGCalDataFrame> uncalibMaker_hef_;
   HGCalUncalibRecHitRecWeightsAlgo<HGCalDataFrame> uncalibMaker_heb_;

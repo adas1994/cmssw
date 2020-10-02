@@ -6,9 +6,10 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include "RecoLocalCalo/HGCalRecProducers/interface/HGCalUncalibRecHitWorkerFactory.h"
-
+#include <iostream>
+#include <typeinfo>
 #include "DataFormats/HGCRecHit/interface/HGCRecHitCollections.h"
-
+using namespace std;
 HGCalUncalibRecHitProducer::HGCalUncalibRecHitProducer(const edm::ParameterSet& ps)
     : eeDigiCollection_(consumes<HGCalDigiCollection>(ps.getParameter<edm::InputTag>("HGCEEdigiCollection"))),
       hefDigiCollection_(consumes<HGCalDigiCollection>(ps.getParameter<edm::InputTag>("HGCHEFdigiCollection"))),
@@ -32,7 +33,7 @@ void HGCalUncalibRecHitProducer::produce(edm::Event& evt, const edm::EventSetup&
 
   // tranparently get things from event setup
   worker_->set(es);
-
+  
   // prepare output
   auto eeUncalibRechits = std::make_unique<HGCeeUncalibratedRecHitCollection>();
   auto hefUncalibRechits = std::make_unique<HGChefUncalibratedRecHitCollection>();
@@ -45,6 +46,8 @@ void HGCalUncalibRecHitProducer::produce(edm::Event& evt, const edm::EventSetup&
   const HGCalDigiCollection* eeDigis = pHGCEEDigis.product();
   eeUncalibRechits->reserve(eeDigis->size());
   for (auto itdg = eeDigis->begin(); itdg != eeDigis->end(); ++itdg) {
+    
+    //auto hit = *itdg;
     worker_->runHGCEE(itdg, *eeUncalibRechits);
   }
 
@@ -77,7 +80,7 @@ void HGCalUncalibRecHitProducer::produce(edm::Event& evt, const edm::EventSetup&
         worker_->runHGCHFNose(itdg, *hfnoseUncalibRechits);
     }
   }
-
+  std::cout<<"Now putting stuff in the events"<<std::endl;
   // put the collection of recunstructed hits in the event
   evt.put(std::move(eeUncalibRechits), eeHitCollection_);
   evt.put(std::move(hefUncalibRechits), hefHitCollection_);

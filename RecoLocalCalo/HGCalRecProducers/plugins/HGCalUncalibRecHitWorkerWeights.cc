@@ -1,5 +1,4 @@
 #include "RecoLocalCalo/HGCalRecProducers/plugins/HGCalUncalibRecHitWorkerWeights.h"
-
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -15,6 +14,11 @@ void configureIt(const edm::ParameterSet& conf, HGCalUncalibRecHitRecWeightsAlgo
   constexpr char tdcOnset[] = "tdcOnset";
   constexpr char toaLSB_ns[] = "toaLSB_ns";
   constexpr char fCPerMIP[] = "fCPerMIP";
+  constexpr char doseMap[]  = "doseMap";
+  constexpr char scaleByDoseAlgo[] = "scaleByDoseAlgo";
+  constexpr char scaleByDoseFactor[] = "scaleByDoseFactor";
+  constexpr char ileakParam[] = "ileakParam";
+  constexpr char cceParams[] = "cceParams";
 
   if (conf.exists(isSiFE)) {
     maker.set_isSiFESim(conf.getParameter<bool>(isSiFE));
@@ -54,11 +58,51 @@ void configureIt(const edm::ParameterSet& conf, HGCalUncalibRecHitRecWeightsAlgo
   } else {
     maker.set_fCPerMIP(std::vector<double>({1.0}));
   }
+
+  if (conf.exists(doseMap) && conf.exists(scaleByDoseAlgo)) {
+    const std::string dose_Map = conf.getParameter<std::string>("doseMap");
+    const uint32_t algo       = conf.getParameter<uint32_t>("scaleByDoseAlgo");
+    maker.set_doseMap(dose_Map, algo);
+  } else {
+    maker.set_doseMap("SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka-3.7.20.tx", 0);
+  }
+
+  if (conf.exists("scaleByDoseFactor")) {
+    const double doseFactor = conf.getParameter<double>("scaleByDoseFactor");
+    maker.set_FluenceScaleFactor(doseFactor);
+  } else {
+    maker.set_FluenceScaleFactor(1.);
+  }
+
+  if (conf.exists("ileakParam")) {
+    const edm::ParameterSet& ileakParamSet = conf.getParameterSet("ileakParam");
+    const std::vector<double> ileak_param = ileakParamSet.getParameter<std::vector<double> >("ileakParam");
+    maker.set_IleakParam(ileak_param);
+  } else {
+    const std::vector<double> ileak_param = {0.993,-42.668};
+    maker.set_IleakParam(ileak_param);
+  }
+
+  if (conf.exists("cceParams")) {
+    const edm::ParameterSet& cceParamsSet  = conf.getParameterSet("cceParams");
+    const std::vector<double> cceParamFine  = cceParamsSet.getParameter<std::vector<double> >("cceParamFine");
+    const std::vector<double> cceParamThin  = cceParamsSet.getParameter<std::vector<double> >("cceParamThin");
+    const std::vector<double> cceParamThick = cceParamsSet.getParameter<std::vector<double> >("cceParamThick");
+    maker.set_CceParam(cceParamFine, cceParamThin, cceParamThick);
+  } else {
+    const std::vector<double> cceParamFine = {1.5e+15, -3.00394e-17, 0.318083};
+    const std::vector<double> cceParamThin  = {1.5e+15, -3.09878e-16, 0.211207};
+    const std::vector<double> cceParamThick = {6e+14,   -7.96539e-16, 0.251751};
+    maker.set_CceParam(cceParamFine, cceParamThin, cceParamThick);
+
+  }
+  
+
 }
 
 HGCalUncalibRecHitWorkerWeights::HGCalUncalibRecHitWorkerWeights(const edm::ParameterSet& ps)
     : HGCalUncalibRecHitWorkerBaseClass(ps) {
-  const edm::ParameterSet& ee_cfg = ps.getParameterSet("HGCEEConfig");
+  const edm::ParameterSet& ee_cfg  = ps.getParameterSet("HGCEEConfig");
   const edm::ParameterSet& hef_cfg = ps.getParameterSet("HGCHEFConfig");
   const edm::ParameterSet& heb_cfg = ps.getParameterSet("HGCHEBConfig");
   const edm::ParameterSet& hfnose_cfg = ps.getParameterSet("HGCHFNoseConfig");
@@ -66,6 +110,7 @@ HGCalUncalibRecHitWorkerWeights::HGCalUncalibRecHitWorkerWeights(const edm::Para
   configureIt(hef_cfg, uncalibMaker_hef_);
   configureIt(heb_cfg, uncalibMaker_heb_);
   configureIt(hfnose_cfg, uncalibMaker_hfnose_);
+  
 }
 
 void HGCalUncalibRecHitWorkerWeights::set(const edm::EventSetup& es) {

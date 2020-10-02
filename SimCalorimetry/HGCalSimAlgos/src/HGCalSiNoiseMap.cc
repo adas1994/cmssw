@@ -141,21 +141,23 @@ const HGCalSiNoiseMap::SiCellOpCharacteristicsCore HGCalSiNoiseMap::getSiCellOpC
 //
 HGCalSiNoiseMap::SiCellOpCharacteristics HGCalSiNoiseMap::getSiCellOpCharacteristics(const HGCSiliconDetId &cellId,
                                                                                      GainRange_t gain,
-                                                                                     int aimMIPtoADC) {
+										     int aimMIPtoADC) {
+  std::cout<<"inside HGCalSiNoiseMap::getSiCellOpCharacteristics method"<<std::endl;
   //decode cell properties
   int layer(cellId.layer());
   unsigned int cellThick = cellId.type();
   double cellCap(cellCapacitance_[cellThick]);
   double cellVol(cellVolume_[cellThick]);
   double mipEqfC(mipEqfC_[cellThick]);
-
+  std::cout<<"before accessing cceParams"<<std::endl;
   //location of the cell
   int subdet(cellId.subdet());
   std::vector<double> &cceParam = cceParam_[cellThick];
   const auto &xy(
       ddd()->locateCell(cellId.layer(), cellId.waferU(), cellId.waferV(), cellId.cellU(), cellId.cellV(), true, true));
+  //std::cout<<"got xy"<<std::endl;
   double radius = sqrt(std::pow(xy.first, 2) + std::pow(xy.second, 2));  //in cm
-
+  //std::cout<<"got radius"<<std::endl;
   //call baseline method and add to cache
   return getSiCellOpCharacteristics(cellCap, cellVol, mipEqfC, cceParam, subdet, layer, radius, gain, aimMIPtoADC);
 }
