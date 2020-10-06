@@ -20,7 +20,7 @@ process.load('SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi')
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(5) )
 
 #TFileService
 dirName = '/eos/user/b/bfontana/Samples/'
@@ -31,17 +31,14 @@ process.TFileService = cms.Service("TFileService",
                                )
 
 
-fNames = ['file:/afs/cern.ch/user/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal/step3.root']
-#indir = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/bfontana/GPUScintillator/'
-#file_wildcard = 'step3_0.root'
-#glob = glob.glob( os.path.join(indir, file_wildcard) )
-#fNames = ['file:' + it for it in glob][:]
+fNames = ['file:/eos/user/b/bfontana/Samples/step3_ttbar_PU0.root']
 
 keep = 'keep *'
-drop = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
+drop1 = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
+drop2 = 'drop *_HGCalRecHit_*_*'
 process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(fNames),
-                            inputCommands = cms.untracked.vstring([keep, drop]),
+                            inputCommands = cms.untracked.vstring([keep, drop1, drop2]),
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"))
 
 process.options = cms.untracked.PSet(
@@ -77,6 +74,7 @@ process.HeterogeneousHGCalHEFRecHits = cms.EDProducer( 'HeterogeneousHGCalHEFRec
                                                        rcorr           = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][3:6] ),
                                                        weights         = HGCalRecHit.__dict__['layerWeights'] 
 )
+
 process.HeterogeneousHGCalHEBRecHits = cms.EDProducer('HeterogeneousHGCalHEBRecHitProducer',
                                                       HGCHEBUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEBUncalibRecHits'),
                                                       HGCHEB_keV2DIGI  = HGCalRecHit.__dict__['HGCHEB_keV2DIGI'],
@@ -85,17 +83,34 @@ process.HeterogeneousHGCalHEBRecHits = cms.EDProducer('HeterogeneousHGCalHEBRecH
 )
 process.HGCalRecHits = HGCalRecHit.clone()
 
+"""
+dic1 = process.HeterogeneousHGCalHEFRecHits.__dict__
+for k,v in dic1.items():
+    print(k, v)
+print('')
+print(' ===================================== ')
+print(' ===================================== ')
+print(' ===================================== ')
+print('')
+dic2 = process.HGCalRecHits.__dict__
+for k,v in dic2.items():
+    print(k, v)
+print( HGCalRecHit.__dict__['thicknessCorrection'][3:6] )
+print( HGCalRecHit.__dict__['HGCHEF_cce'] )
+quit()
+"""
+
 process.valid = cms.EDAnalyzer( "HeterogeneousHGCalRecHitsValidator",
                                 cpuRecHitsEEToken = cms.InputTag('HGCalRecHits', 'HGCEERecHits'),
                                 gpuRecHitsEEToken = cms.InputTag('HeterogeneousHGCalEERecHits','HeterogeneousHGCalEERecHits'),
-                                cpuRecHitsHSiToken = cms.InputTag('HGCalRecHits', 'HGCEERecHits'),
-                                gpuRecHitsHSiToken = cms.InputTag('HeterogeneousHGCalEERecHits','HeterogeneousHGCalEERecHits'),
-                                cpuRecHitsHSciToken = cms.InputTag('HGCalRecHits', 'HGCEERecHits'),
-                                gpuRecHitsHSciToken = cms.InputTag('HeterogeneousHGCalEERecHits','HeterogeneousHGCalEERecHits')
+                                cpuRecHitsHSiToken = cms.InputTag('HGCalRecHits', 'HGCHEFRecHits'),
+                                gpuRecHitsHSiToken = cms.InputTag('HeterogeneousHGCalHEFRecHits','HeterogeneousHGCalHEFRecHits'),
+                                cpuRecHitsHSciToken = cms.InputTag('HGCalRecHits', 'HGCHEFRecHits'),
+                                gpuRecHitsHSciToken = cms.InputTag('HeterogeneousHGCalHEFRecHits','HeterogeneousHGCalHEFRecHits')
 )
 
-#process.recHitsTask = cms.Task( process.HGCalRecHits, process.HeterogeneousHGCalEERecHits, process.HeterogeneousHGCalHEFRecHits, process.HeterogeneousHGCalHEBRecHits )
-process.recHitsTask = cms.Task( process.HGCalRecHits, process.HeterogeneousHGCalEERecHits )
+process.recHitsTask = cms.Task( process.HGCalRecHits, process.HeterogeneousHGCalEERecHits, process.HeterogeneousHGCalHEFRecHits, process.HeterogeneousHGCalHEBRecHits )
+#process.recHitsTask = cms.Task( process.HGCalRecHits, process.HeterogeneousHGCalHEFRecHits )
 process.path = cms.Path( process.valid, process.recHitsTask )
 
 process.out = cms.OutputModule( "PoolOutputModule", 

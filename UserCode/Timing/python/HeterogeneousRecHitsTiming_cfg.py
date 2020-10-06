@@ -12,17 +12,19 @@ F.register('withGPU',
            F.multiplicity.singleton,
            F.varType.bool,
            "Whether to run with GPUs or CPUs.")
-F.register('PU',
-           -1,
-           F.multiplicity.singleton,
-           F.varType.int,
-           "Pileup to consider.")
+#F.register('PU',
+#           -1,
+#           F.multiplicity.singleton,
+#           F.varType.int,
+#           "Pileup to consider.")
 F.parseArguments()
 print("********************")
 print("Input arguments:")
 for k,v in F.__dict__["_singletons"].items():
     print("{}: {}".format(k,v))
     print("********************")
+
+PU=0
 
 #package loading
 process = cms.Process("gpuValidation", gpu) 
@@ -35,6 +37,7 @@ process.load('Configuration.Geometry.GeometryExtended2026D49Reco_cff')
 process.load('HeterogeneousCore.CUDAServices.CUDAService_cfi')
 process.load('RecoLocalCalo.HGCalRecProducers.HGCalRecHit_cfi')
 process.load('SimCalorimetry.HGCalSimProducers.hgcalDigitizer_cfi')
+process.load( "HLTrigger.Timer.FastTimerService_cfi" )
 
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
@@ -42,7 +45,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 indir = '/eos/user/b/bfontana/Samples/'
-fNames = [ 'file:' + x for x in glob.glob(os.path.join(indir, 'step3_ttbar_PU' + str(F.PU) + '*.root')) ]
+fNames = [ 'file:' + x for x in glob.glob(os.path.join(indir, 'step3_ttbar_PU' + str(PU) + '*.root')) ]
 keep = 'keep *'
 drop = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
 process.source = cms.Source("PoolSource",
@@ -65,6 +68,9 @@ process.ThroughputService = cms.Service( "ThroughputService",
                                          #dqmPathByProcesses = cms.untracked.bool( False ),
                                          #timeResolution = cms.untracked.double( 5.828 )
 )
+process.FastTimerService.enableDQM = False
+process.FastTimerService.writeJSONSummary = True
+process.FastTimerService.jsonFileName = 'resources.json'
 process.MessageLogger.categories.append('ThroughputService')
 
 HeterogeneousHGCalEERecHits = cms.EDProducer( 'HeterogeneousHGCalEERecHitProducer',
@@ -81,6 +87,7 @@ HeterogeneousHGCalEERecHits = cms.EDProducer( 'HeterogeneousHGCalEERecHitProduce
                                               rcorr          	     = cms.vdouble( HGCalRecHit.__dict__['thicknessCorrection'][0:3] ),
                                               weights        	     = HGCalRecHit.__dict__['layerWeights'] )
 
+#process.HeterogeneousHGCalHEFCellPositionsFiller = cms.ESProducer("HeterogeneousHGCalHEFCellPositionsFiller")
 HeterogeneousHGCalHEFRecHits = cms.EDProducer( 'HeterogeneousHGCalHEFRecHitProducer',
                                                HGCHEFUncalibRecHitsTok = cms.InputTag('HGCalUncalibRecHit', 'HGCHEFUncalibRecHits'),
                                                HGCHEF_keV2DIGI         = HGCalRecHit.__dict__['HGCHEF_keV2DIGI'],
@@ -114,5 +121,5 @@ else:
 process.path = cms.Path( process.recHitsTask )
 
 process.out = cms.OutputModule( "PoolOutputModule", 
-                                fileName = cms.untracked.string( os.path.join(indir, 'out_PU' + str(F.PU) + '.root') ) )
+                                fileName = cms.untracked.string( os.path.join(indir, 'out_PU' + str(PU) + '.root') ) )
 process.outpath = cms.EndPath(process.out)

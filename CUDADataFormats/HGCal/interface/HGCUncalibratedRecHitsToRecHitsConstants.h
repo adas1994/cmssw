@@ -60,7 +60,7 @@ class HGChefUncalibratedRecHitConstantData {
   float xmax_;         //used for computing the time resolution error
   float aterm_;        //used for computing the time resolution error
   float cterm_;        //used for computing the time resolution error
-  uint32_t layerOffset_;  //layer offset relative to layer#1 of the EE subsetector
+  int32_t layerOffset_;  //layer offset relative to layer#1 of the EE subsetector
 };
 
 class HGChebUncalibratedRecHitConstantData {

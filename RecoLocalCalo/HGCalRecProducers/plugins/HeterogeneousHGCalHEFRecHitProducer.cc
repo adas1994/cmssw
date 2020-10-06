@@ -14,6 +14,7 @@ HeterogeneousHGCalHEFRecHitProducer::HeterogeneousHGCalHEFRecHitProducer(const e
   vdata_.rcorr_             = ps.getParameter< std::vector<double> >("rcorr");
   vdata_.weights_           = ps.getParameter< std::vector<double> >("weights");
   cdata_.uncalib2GeV_ = 1e-6 / cdata_.keV2DIGI_;
+  cdata_.layerOffset_ = 28;
   assert_sizes_constants_(vdata_);
 
   uncalibSoA_        = new HGCUncalibratedRecHitSoA();
@@ -26,7 +27,7 @@ HeterogeneousHGCalHEFRecHitProducer::HeterogeneousHGCalHEFRecHitProducer(const e
 
   tools_ = std::make_unique<hgcal::RecHitTools>();
   produces<HGChefRecHitCollection>(collection_name_);
-
+  
   /*
   x0 = fs->make<TH1F>( "x_type0"  , "x_type0", 300, -120., 120. );
   y0 = fs->make<TH1F>( "y_type0"  , "y_type0", 300, -120., 120. );
@@ -78,18 +79,22 @@ void HeterogeneousHGCalHEFRecHitProducer::beginRun(edm::Run const&, edm::EventSe
   std::string handle_str = "HGCalHESiliconSensitive";
   edm::ESHandle<HGCalGeometry> handle;
   setup.get<IdealGeometryRecord>().get(handle_str, handle);
-  
+
+  /*  
   ddd_ = &( handle->topology().dddConstants() );
   params_ = ddd_->getParameter();
-  cdata_.layerOffset_ = params_->layerOffset_; //=28 (6-07-2020)
+  cdata_.layerOffset_ = params_->layerOffset_;
+  */
 }
 
 void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::EventSetup const& setup, edm::WaitingTaskWithArenaHolder w) {
   const cms::cuda::ScopedContextAcquire ctx{event.streamID(), std::move(w), ctxState_};
 
+  /*
   edm::ESHandle<HeterogeneousHGCalHEFCellPositionsConditions> celpos_handle;
   setup.get<HeterogeneousHGCalHEFCellPositionsConditionsRecord>().get(celpos_handle);
   celpos = celpos_handle->getHeterogeneousConditionsESProductAsync( 0 );
+  */
 
   event.getByToken(token_, handle_hef_);
   const auto &hits_hef = *handle_hef_;
@@ -109,6 +114,7 @@ void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::
       KernelManagerHGCalRecHit km(kmdata_);
       km.run_kernels(kcdata_, ctx.stream());
 
+      /*
       for(unsigned i=0; i<10; ++i)
 	{
 	  unsigned testId = hits_hef[i].id().rawId();
@@ -120,6 +126,7 @@ void HeterogeneousHGCalHEFRecHitProducer::acquire(edm::Event const& event, edm::
 	  KernelManagerHGCalCellPositions km2( 1 ); //test with one single item (one block with some threads)
 	  km2.test_cell_positions( testId, celpos );
 	}
+      */
     }
 }
 

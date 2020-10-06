@@ -27,7 +27,7 @@ process.TFileService = cms.Service("TFileService",
 process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32( 1 ))
 
-indir = '/afs/cern.ch/user/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal'
+indir = '/afs/cern.ch/work/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal'
 file_wildcard = 'step3.root'
 glob = glob.glob( os.path.join(indir, file_wildcard) )
 fNames = ['file:' + it for it in glob][:]
