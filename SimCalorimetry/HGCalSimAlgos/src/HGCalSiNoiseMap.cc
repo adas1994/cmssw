@@ -142,14 +142,14 @@ const HGCalSiNoiseMap::SiCellOpCharacteristicsCore HGCalSiNoiseMap::getSiCellOpC
 HGCalSiNoiseMap::SiCellOpCharacteristics HGCalSiNoiseMap::getSiCellOpCharacteristics(const HGCSiliconDetId &cellId,
                                                                                      GainRange_t gain,
 										     int aimMIPtoADC) {
-  std::cout<<"inside HGCalSiNoiseMap::getSiCellOpCharacteristics method"<<std::endl;
+  
   //decode cell properties
   int layer(cellId.layer());
   unsigned int cellThick = cellId.type();
   double cellCap(cellCapacitance_[cellThick]);
   double cellVol(cellVolume_[cellThick]);
   double mipEqfC(mipEqfC_[cellThick]);
-  std::cout<<"before accessing cceParams"<<std::endl;
+  
   //location of the cell
   int subdet(cellId.subdet());
   std::vector<double> &cceParam = cceParam_[cellThick];

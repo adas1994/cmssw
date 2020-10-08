@@ -76,70 +76,59 @@ public:
   virtual HGCUncalibratedRecHit makeRecHit(const C& dataFrame) { //------ makeRecHit starts ------------------
     double amplitude_(-1.), pedestal_(-1.), jitter_(-1.), chi2_(-1.);
     uint32_t flag = 0;
-    /// ---- My Addition ---------------------------------
-    
-    
     HGCalDetId detId = dataFrame.id();
-    bool isHGCal = detId.isHGCal();
-    bool isForward = detId.isForward();
-    int cell = detId.cell();
-    int wafer = detId.wafer();
-    int waferType = detId.waferType();
-    int layer = detId.layer();
-    std::cout<<"*** "<<isHGCal<<std::endl;
-    
-    //std::cout<<"before printing detId"<<std::endl;
-    //std::cout<<detId<<std::endl;
     constexpr int iSample = 2;  //only in-time sample
     const auto& sample = dataFrame.sample(iSample);
+    // ---- sample quantities -----------------
     bool isTDC = sample.mode();
-    bool isBusy = (isTDC);
-    HGCalSiNoiseMap::GainRange_t gain = static_cast<HGCalSiNoiseMap::GainRange_t> (sample.gain());
     double rawADC = (double)(sample.data());
-    std::cout<<"before siop"<<std::endl;
-    HGCalSiNoiseMap::SiCellOpCharacteristics siop = rad_map_->getSiCellOpCharacteristics(detId);
-    std::cout<<"after siop"<<std::endl;
-    double mipADC = double(siop.mipADC);
-    //std::cout<<gain<<"\t"<<sample.gain()<<std::endl;
-    double nmips = rawADC/mipADC;
-    std::cout<<nmips<<std::endl;
-    //number of MIPs
-    if(isTDC) {
-      double adcLSB( 1./80.);
-      if(gain==HGCalSiNoiseMap::q160fC) adcLSB=1./160.;
-      if(gain==HGCalSiNoiseMap::q320fC) adcLSB=1./320.;
-                 
-      double charge( (std::floor(tdcOnsetfC_ / adcLSB) + 1.0) * adcLSB + (rawADC+0.5)*tdcLSB_ );
-      nmips = charge/double(mipADC);
-    }
-    if(isBusy) {
-      nmips=0;
-    }
+    HGCalSiNoiseMap::GainRange_t sample_gain = static_cast<HGCalSiNoiseMap::GainRange_t> (sample.gain());
+    // ---------------------------------------
+    double cce;
+    int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;
+    if(detId.det() != DetId::HGCalHSc) {
+      HGCalSiNoiseMap::SiCellOpCharacteristics siop = rad_map_->getSiCellOpCharacteristics(detId);
+      HGCalSiNoiseMap::GainRange_t gain = static_cast<HGCalSiNoiseMap::GainRange_t>(siop.core.gain);
+      double adcLSB = rad_map_->getLSBPerGain()[gain];
+      std::cout<<adcLSB_<<"\t"<<adcLSB<<std::endl;
+      cce = siop.core.cce;
+      double noise = siop.core.noise;
+      double mipADC = double(siop.mipADC);
+      bool isBusy = (isTDC);
+      double nmips = rawADC/mipADC;
     
+    }
+    else {
+      cce = fCPerMIP_[thickness];
+    }
+
+    
+    // -------------------------- This portion has to run whether or not Si/Sci ------------------ //
     if (isSiFESim_) {
       // mode == true: TDC readout was activated and amplitude comes from TimeOverThreshold
       if (sample.mode()) {
         flag = !sample.threshold();  // raise flag if busy cell
-        amplitude_ = (std::floor(tdcOnsetfC_ / adcLSB_) + 1.0) * adcLSB_ + (double(sample.data()) + 0.5) * tdcLSB_;
-
+	// --- original formula -------
+        //amplitude_ = (std::floor(tdcOnsetfC_ / adcLSB_) + 1.0) * adcLSB_ + (double(sample.data()) + 0.5) * tdcLSB_;
+	amplitude_ = tdcOnsetfC_ + (rawADC + 0.5)*tdcLSB_ ;
         if (sample.getToAValid()) {
           jitter_ = double(sample.toa()) * toaLSBToNS_;
         }
       } else {
-        amplitude_ = double(sample.data()) * adcLSB_;  // why do we not have +0.5 here ?
+        amplitude_ = (rawADC + 0.5) * adcLSB_;  // why do we not have +0.5 here ?
         if (sample.getToAValid()) {
           jitter_ = double(sample.toa()) * toaLSBToNS_;
         }
-      }  //isSiFESim_
-    }    //mode()
+      }  //mode()
+    }    //isSiFESim_
 
     
     // trivial digitization, i.e. no signal shape
     else {
       amplitude_ = double(sample.data()) * adcLSB_;
     }
-    int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;
-    amplitude_ = amplitude_ / fCPerMIP_[thickness];
+    //int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;
+    amplitude_ = amplitude_ / cce;
     return HGCUncalibratedRecHit(dataFrame.id(), amplitude_, pedestal_, jitter_, chi2_, flag);
   } //------ makeRecHit ends ---------------------
 
@@ -151,3 +140,4 @@ private:
   const HGCalDDDConstants* ddd_;
 };
 #endif
+
