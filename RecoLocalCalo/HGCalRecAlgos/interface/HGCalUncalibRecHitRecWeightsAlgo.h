@@ -86,12 +86,12 @@ public:
     // ---------------------------------------
     double cce;
     int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;
-    if(detId.det() != DetId::HGCalHSc) {
+    if(detId.det() != DetId::HGCalHSc && sample_gain > 0) {
       HGCalSiNoiseMap::SiCellOpCharacteristics siop = rad_map_->getSiCellOpCharacteristics(detId);
       HGCalSiNoiseMap::GainRange_t gain = static_cast<HGCalSiNoiseMap::GainRange_t>(siop.core.gain);
       double adcLSB = rad_map_->getLSBPerGain()[gain];
       std::cout<<adcLSB_<<"\t"<<adcLSB<<std::endl;
-      cce = siop.core.cce;
+      cce = siop.mipfC ; //siop.core.cce;
       double noise = siop.core.noise;
       double mipADC = double(siop.mipADC);
       bool isBusy = (isTDC);
