@@ -134,7 +134,7 @@ void HeterogeneousHGCalHEFRecHitProducer::produce(edm::Event& event, const edm::
 {
   cms::cuda::ScopedContextProduce ctx{ctxState_}; //only for GPU to GPU producers
 
-  convert_soa_data_to_collection_(*rechits_, kmdata_);
+  //convert_soa_data_to_collection_(*rechits_, kmdata_);
   event.put(std::move(rechits_), collection_name_);
 }
 

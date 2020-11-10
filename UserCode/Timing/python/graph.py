@@ -26,6 +26,7 @@ title3 = 'RecHit calibrator throughput'
 colours = ['green', 'blue', 'red']
 threadsdict = {0: 256, 1: 512, 2: 1024}
 
+#140: 0.028051  
 sGPUy = [ np.array([0.004991, 0.016372, 0.029064, 0.036054, 0.053280]), #256 threads
           np.array([0.005375, 0.015516, 0.025280, 0.031587, 0.039127]), #512 threads
           np.array([0.005474, 0.015060, 0.024048, 0.032301, 0.041301]) ] #1024 threads

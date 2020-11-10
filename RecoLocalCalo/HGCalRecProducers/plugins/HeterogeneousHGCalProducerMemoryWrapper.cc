@@ -15,7 +15,7 @@ namespace memory {
   namespace allocation {
 
     //allocates memory for UncalibratedRecHits SoAs and RecHits SoAs on the device
-    void device(const int& nhits, HGCUncalibratedRecHitSoA* soa1, HGCUncalibratedRecHitSoA* soa2, HGCRecHitSoA* soa3, cms::cuda::device::unique_ptr<std::byte[]>& mem, const cudaStream_t& stream)
+    cms::cuda::device::unique_ptr<std::byte[]> device(const int& nhits, HGCUncalibratedRecHitSoA* soa1, HGCUncalibratedRecHitSoA* soa2, HGCRecHitSoA* soa3, const cudaStream_t& stream)
     {
       std::vector<int> sizes = {npointers::float_hgcuncalibrechits_soa  * sizeof(float),
 				npointers::uint32_hgcuncalibrechits_soa * sizeof(uint32_t), //soa1
@@ -25,7 +25,7 @@ namespace memory {
 				npointers::uint32_hgcrechits_soa        * sizeof(uint32_t),
 				npointers::uint8_hgcrechits_soa         * sizeof(uint8_t)}; //soa3
       int size_tot = std::accumulate( sizes.begin(), sizes.end(), 0);
-      mem = cms::cuda::make_device_unique<std::byte[]>(nhits * size_tot, stream);
+      cms::cuda::device::unique_ptr<std::byte[]> mem = cms::cuda::make_device_unique<std::byte[]>(nhits * size_tot, stream);
 
       soa1->amplitude_     = reinterpret_cast<float*>(mem.get());
       soa1->pedestal_      = soa1->amplitude_    + nhits;
@@ -59,15 +59,17 @@ namespace memory {
 				      sizes.begin() + 2*npointers::ntypes_hgcuncalibrechits_soa, 0);
       soa3->nbytes_ = std::accumulate(sizes.begin() + 2*npointers::ntypes_hgcuncalibrechits_soa, sizes.end(), 0);
       assert(sizes.begin()+2*npointers::ntypes_hgcuncalibrechits_soa+npointers::ntypes_hgcrechits_soa == sizes.end());
+
+      return mem;
     }
 
     //allocates page-locked (pinned) and non cached (write-combining) memory for UncalibratedRecHits SoAs on the host
-    void host(const int& nhits, HGCUncalibratedRecHitSoA* soa, cms::cuda::host::unique_ptr<std::byte[]>& mem, const cudaStream_t& stream)
+    cms::cuda::host::unique_ptr<std::byte[]> host(const int& nhits, HGCUncalibratedRecHitSoA* soa, const cudaStream_t& stream)
     {
       std::vector<int> sizes = { npointers::float_hgcuncalibrechits_soa  * sizeof(float),
 				 npointers::uint32_hgcuncalibrechits_soa * sizeof(uint32_t) };
       int size_tot = std::accumulate(sizes.begin(), sizes.end(), 0);
-      mem = cms::cuda::make_host_unique<std::byte[]>(nhits * size_tot, stream);
+      cms::cuda::host::unique_ptr<std::byte[]> mem = cms::cuda::make_host_unique<std::byte[]>(nhits * size_tot, stream);
 
       soa->amplitude_     = reinterpret_cast<float*>(mem.get());
       soa->pedestal_      = soa->amplitude_    + nhits;
@@ -81,16 +83,18 @@ namespace memory {
       soa->aux_           = soa->flags_        + nhits;
       soa->id_            = soa->aux_          + nhits;
       soa->nbytes_        = size_tot;
+
+      return mem;
     }
 
     //allocates page-locked (pinned) memory for RecHits SoAs on the host
-    void host(const int& nhits, HGCRecHitSoA* soa, cms::cuda::host::unique_ptr<std::byte[]>& mem, const cudaStream_t& stream)
+    cms::cuda::host::unique_ptr<std::byte[]> host(const int& nhits, HGCRecHitSoA* soa, const cudaStream_t& stream)
     {
       std::vector<int> sizes = { npointers::float_hgcrechits_soa  * sizeof(float),
 				 npointers::uint32_hgcrechits_soa * sizeof(uint32_t),
 				 npointers::uint8_hgcrechits_soa  * sizeof(uint8_t) };
       int size_tot = std::accumulate(sizes.begin(), sizes.end(), 0);
-      mem = cms::cuda::make_host_unique<std::byte[]>(nhits * size_tot, stream);
+      cms::cuda::host::unique_ptr<std::byte[]> mem = cms::cuda::make_host_unique<std::byte[]>(nhits * size_tot, stream);
       soa->energy_     = reinterpret_cast<float*>(mem.get());
       soa->time_       = soa->energy_     + nhits;
       soa->timeError_  = soa->time_       + nhits;
@@ -98,6 +102,8 @@ namespace memory {
       soa->flagBits_   = soa->id_         + nhits;
       soa->son_        = reinterpret_cast<uint8_t*>(soa->flagBits_ + nhits);
       soa->nbytes_ = size_tot;
+
+      return mem;
     }
   }
 }

@@ -8,7 +8,7 @@ from RecoLocalCalo.HGCalRecProducers.HGCalRecHit_cfi import HGCalRecHit
 from FWCore.ParameterSet.VarParsing import VarParsing
 F = VarParsing('analysis')
 F.register('withGPU',
-           1,
+           0,
            F.multiplicity.singleton,
            F.varType.bool,
            "Whether to run with GPUs or CPUs.")
@@ -18,13 +18,8 @@ F.register('withGPU',
 #           F.varType.int,
 #           "Pileup to consider.")
 F.parseArguments()
-print("********************")
-print("Input arguments:")
-for k,v in F.__dict__["_singletons"].items():
-    print("{}: {}".format(k,v))
-    print("********************")
 
-PU=0
+PU=140
 
 #package loading
 process = cms.Process("gpuValidation", gpu) 
@@ -42,20 +37,28 @@ process.load( "HLTrigger.Timer.FastTimerService_cfi" )
 from Configuration.AlCa.GlobalTag import GlobalTag
 process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 
-indir = '/eos/user/b/bfontana/Samples/'
-fNames = [ 'file:' + x for x in glob.glob(os.path.join(indir, 'step3_ttbar_PU' + str(PU) + '*.root')) ]
+#indir = '/eos/user/b/bfontana/Samples/'
+indir = '/home/bfontana/'
+#filename_suff = 'step3_ttbar_PU' + str(PU)
+filename_suff = 'hadd_out_PU' + str(PU) 
+fNames = [ 'file:' + x for x in glob.glob(os.path.join(indir, filename_suff + '*.root')) ]
+for _ in range(4):
+    fNames.extend(fNames)
+
 keep = 'keep *'
-drop = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
+drop1 = 'drop HGCRecHitsSorted_HGCalRecHit_HGC*E*RecHits_*'
+drop2 = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
 process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(fNames),
-                            inputCommands = cms.untracked.vstring([keep, drop]),
+                            inputCommands = cms.untracked.vstring(drop1, drop2, keep),
                             duplicateCheckMode = cms.untracked.string("noDuplicateCheck"))
 
 wantSummaryFlag = True
+nThreads = 1
 process.options = cms.untracked.PSet(
-    wantSummary = cms.untracked.bool( wantSummaryFlag ) ) #add option for edmStreams
+    wantSummary = cms.untracked.bool( wantSummaryFlag )) #add option for edmStreams
 
 process.ThroughputService = cms.Service( "ThroughputService",
                                          eventRange = cms.untracked.uint32( 300 ),
@@ -68,6 +71,7 @@ process.ThroughputService = cms.Service( "ThroughputService",
                                          #dqmPathByProcesses = cms.untracked.bool( False ),
                                          #timeResolution = cms.untracked.double( 5.828 )
 )
+
 process.FastTimerService.enableDQM = False
 process.FastTimerService.writeJSONSummary = True
 process.FastTimerService.jsonFileName = 'resources.json'
@@ -116,10 +120,20 @@ process.HGCalRecHits = HGCalRecHit.clone() #CPU version
 
 if F.withGPU:
     process.recHitsTask = cms.Task( process.HeterogeneousHGCalEERecHits, process.HeterogeneousHGCalHEFRecHits, process.HeterogeneousHGCalHEBRecHits )
+    outkeeps = ['keep *_*_' + f + '*_*' for f in ['HeterogeneousHGCalEERecHits', 'HeterogeneousHGCalHEFRecHits', 'HeterogeneousHGCalHEBRecHits']]
 else:
     process.recHitsTask = cms.Task( process.HGCalRecHits )
+    outkeeps = ['keep *_*_' + f + '*_*' for f in ['HGCEERecHits', 'HGCHEFRecHits', 'HGCHEBRecHits'] ]
 process.path = cms.Path( process.recHitsTask )
 
 process.out = cms.OutputModule( "PoolOutputModule", 
-                                fileName = cms.untracked.string( os.path.join(indir, 'out_PU' + str(PU) + '.root') ) )
+                                fileName = cms.untracked.string( '/home/bfontana/out_Timing_PU' + str(PU) + '.root'),
+                                outputCommands = cms.untracked.vstring(outkeeps[0], outkeeps[1], outkeeps[2]),
+)
 process.outpath = cms.EndPath(process.out)
+
+print("********************")
+print("Input arguments:")
+for k,v in F.__dict__["_singletons"].items():
+    print("{}: {}".format(k,v))
+    print("********************")

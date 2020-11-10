@@ -30,9 +30,9 @@
 
 namespace memory {
   namespace allocation {
-    void host(const int&, HGCUncalibratedRecHitSoA*, cms::cuda::host::unique_ptr<std::byte[]>&, const cudaStream_t&);
-    void host(const int&, HGCRecHitSoA*, cms::cuda::host::unique_ptr<std::byte[]>&, const cudaStream_t&);
-    void device(const int&, HGCUncalibratedRecHitSoA*, HGCUncalibratedRecHitSoA*, HGCRecHitSoA*, cms::cuda::device::unique_ptr<std::byte[]>&, const cudaStream_t&);
+    cms::cuda::host::unique_ptr<std::byte[]> host(const int&, HGCUncalibratedRecHitSoA*, const cudaStream_t&);
+    cms::cuda::host::unique_ptr<std::byte[]> host(const int&, HGCRecHitSoA*, const cudaStream_t&);
+    cms::cuda::device::unique_ptr<std::byte[]> device(const int&, HGCUncalibratedRecHitSoA*, HGCUncalibratedRecHitSoA*, HGCRecHitSoA*, const cudaStream_t&);
   }
 }
 							
