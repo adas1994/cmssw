@@ -26,5 +26,8 @@ The following new class member methods have been introduced to configure `rad_ma
   
 So, it has added the code for deconvoluting gain for SiNoiseMap. But, the case for SciNoiseMap is not yet solved.
 To make these modifications compatible, we also had to modify this plugin module - [RecoLocalCalo/HGCalRecProducers/plugins/HGCalUncalibRecHitWorkerWeights.cc](https://github.com/adas1994/cmssw/blob/GainProject/RecoLocalCalo/HGCalRecProducers/plugins/HGCalUncalibRecHitWorkerWeights.cc#L62-L96).
-  
+
+Necessary parameters have also been introduced to [RecoLocalCalo/HGCalRecProducers/python/HGCalUncalibRecHit_cfi.py](https://github.com/adas1994/cmssw/blob/GainProject/RecoLocalCalo/HGCalRecProducers/python/HGCalUncalibRecHit_cfi.py).
+
+When we run the Reco step of a RelVal Upgrade workflow, we need to modify the process according to [this function](https://github.com/cms-sw/cmssw/blob/master/SimCalorimetry/HGCalSimProducers/python/hgcalDigitizer_cfi.py#L251). I did not find the agedHGCal function in the same cfi file in the latest version of CMSSW. 
 
