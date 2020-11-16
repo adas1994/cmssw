@@ -6,12 +6,12 @@ The following new class member methods have been introduced to configure `rad_ma
                     const std::vector<double> &paramsThin,
                     const std::vector<double> &paramsThick)`. We have also modified the `virtual HGCUncalibratedRecHit HGCalUncalibRecHitRecWeightsAlgo::makeRecHit(const C& dataFrame)` where C is the class which the *HGCalUncalibRecHitRecWeightsAlgo* is templated upon. The following new lines have been introduced to the *makeRecHit* function -
                     
-`HGCalDetId detId = dataFrame.id();
- HGCalSiNoiseMap::GainRange_t sample_gain = static_cast<HGCalSiNoiseMap::GainRange_t> (sample.gain());\
- double cce;\
- int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;\
- if(detId.det() != DetId::HGCalHSc && sample_gain > 0) {\
-      HGCalSiNoiseMap::SiCellOpCharacteristics siop = rad_map_->getSiCellOpCharacteristics(detId);\
+`HGCalDetId detId = dataFrame.id();&nbsp;
+ HGCalSiNoiseMap::GainRange_t sample_gain = static_cast<HGCalSiNoiseMap::GainRange_t> (sample.gain());
+ double cce;
+ int thickness = (ddd_ != nullptr) ? ddd_->waferType(dataFrame.id()) : 0;
+ if(detId.det() != DetId::HGCalHSc && sample_gain > 0) {
+      HGCalSiNoiseMap::SiCellOpCharacteristics siop = rad_map_->getSiCellOpCharacteristics(detId);
       HGCalSiNoiseMap::GainRange_t gain = static_cast<HGCalSiNoiseMap::GainRange_t>(siop.core.gain);
       double adcLSB = rad_map_->getLSBPerGain()[gain];
       cce = siop.mipfC ; //siop.core.cce;                                                                                                 
