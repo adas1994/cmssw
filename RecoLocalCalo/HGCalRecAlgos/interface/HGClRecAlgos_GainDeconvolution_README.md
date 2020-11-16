@@ -19,12 +19,10 @@ The following new class member methods have been introduced to configure `rad_ma
       double mipADC = double(siop.mipADC);
       bool isBusy = (isTDC);
       double nmips = rawADC/mipADC;
-
-    }
-    else {
+}else {
       cce = fCPerMIP_[thickness];
     }
-  `
+`
   
 So, it has added the code for deconvoluting gain for SiNoiseMap. But, the case for SciNoiseMap is not yet solved.
 To make these modifications compatible, we also had to modify this plugin module - [RecoLocalCalo/HGCalRecProducers/plugins/HGCalUncalibRecHitWorkerWeights.cc](https://github.com/adas1994/cmssw/blob/GainProject/RecoLocalCalo/HGCalRecProducers/plugins/HGCalUncalibRecHitWorkerWeights.cc#L62-L96).
