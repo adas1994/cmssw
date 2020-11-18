@@ -11,18 +11,18 @@ struct HeterogeneousGeometryESProduct {
 // Declare the wrapper ESProduct. The corresponding ESProducer should
 // produce objects of this type.
 class HeterogeneousGeometryESProductWrapper {
- public:
+public:
   // Constructor takes the standard CPU ESProduct, and transforms the
   // necessary data to array(s) in pinned host memory
-  HeterogeneousGeometryESProductWrapper(HeterogeneousGeometryESProduct const&);
-  
+  HeterogeneousGeometryESProductWrapper(HeterogeneousGeometryESProduct const &);
+
   // Deallocates all pinned host memory
   ~HeterogeneousGeometryESProductWrapper();
-  
+
   // Function to return the actual payload on the memory of the current device
   HeterogeneousGeometryESProduct const *getHeterogeneousGeometryESProductAsync(cudaStream_t stream) const;
-  
- private:
+
+private:
   // Holds the data in pinned CPU memory
   float *payload_array_;
   unsigned int payload_var_;

@@ -30,10 +30,20 @@
 
 namespace memory {
   namespace allocation {
-    cms::cuda::host::unique_ptr<std::byte[]> host(const int&, HGCUncalibratedRecHitSoA*, const cudaStream_t&);
-    cms::cuda::host::unique_ptr<std::byte[]> host(const int&, HGCRecHitSoA*, const cudaStream_t&);
-    cms::cuda::device::unique_ptr<std::byte[]> device(const int&, HGCUncalibratedRecHitSoA*, HGCUncalibratedRecHitSoA*, HGCRecHitSoA*, const cudaStream_t&);
-  }
-}
-							
-#endif //RecoLocalCalo_HGCalRecProducers_HeterogeneousHGCalProducerMemoryWrapper_h
+    cms::cuda::device::unique_ptr<std::byte[]> uncalibRecHitDevice(const uint32_t&,
+                                                                   const uint32_t&,
+                                                                   HGCUncalibratedRecHitSoA*,
+                                                                   const cudaStream_t&);
+    cms::cuda::host::unique_ptr<std::byte[]> uncalibRecHitHost(const uint32_t&,
+                                                               const uint32_t&,
+                                                               HGCUncalibratedRecHitSoA*,
+                                                               const cudaStream_t&);
+    cms::cuda::host::unique_ptr<std::byte[]> calibRecHitHost(const uint32_t&,
+                                                             const uint32_t&,
+                                                             HGCRecHitSoA*,
+                                                             const cudaStream_t&);
+    void calibRecHitDevice(const uint32_t&, const uint32_t&, const uint32_t&, HGCRecHitSoA*, std::byte*);
+  }  // namespace allocation
+}  // namespace memory
+
+#endif  //RecoLocalCalo_HGCalRecProducers_HeterogeneousHGCalProducerMemoryWrapper_h

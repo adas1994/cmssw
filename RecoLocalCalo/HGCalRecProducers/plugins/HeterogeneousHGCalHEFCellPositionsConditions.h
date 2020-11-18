@@ -1,7 +1,7 @@
 #ifndef CondFormats_HGCalObjects_HeterogeneousHGCalHEFConditions_h
 #define CondFormats_HGCalObjects_HeterogeneousHGCalHEFConditions_h
 
-#include <numeric> //accumulate
+#include <numeric>  //accumulate
 #include <typeinfo>
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -13,23 +13,24 @@
 #include "RecoLocalCalo/HGCalRecProducers/plugins/KernelManagerHGCalCellPositions.h"
 
 namespace cpar = hgcal_conditions::parameters;
-namespace cpos = hgcal_conditions::positions;  
+namespace cpos = hgcal_conditions::positions;
 
 // Declare the wrapper ESProduct. The corresponding ESProducer should
 // produce objects of this type.
 class HeterogeneousHGCalHEFCellPositionsConditions {
- public:
+public:
   // Constructor takes the standard CPU ESProduct, and transforms the
   // necessary data to array(s) in pinned host memory
   HeterogeneousHGCalHEFCellPositionsConditions(cpos::HGCalPositionsMapping*);
-  
+
   // Deallocates all pinned host memory
   ~HeterogeneousHGCalHEFCellPositionsConditions();
-  
-  // Function to return the actual payload on the memory of the current device
-  hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct const *getHeterogeneousConditionsESProductAsync(cudaStream_t stream) const;
 
- private:
+  // Function to return the actual payload on the memory of the current device
+  hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct const* getHeterogeneousConditionsESProductAsync(
+      cudaStream_t stream) const;
+
+private:
   // Holds the data in pinned CPU memory
   // Contrary to its non-heterogeneous counterpart (constructor argument) it is *not* a pointer (so to avoid an extra allocation)
   cpos::HeterogeneousHGCalPositionsMapping posmap_;
@@ -37,8 +38,9 @@ class HeterogeneousHGCalHEFCellPositionsConditions {
 
   std::vector<size_t> sizes_;
   size_t chunk_;
-  const size_t number_position_arrays = 2; //x and y; required due to the assymetry between cpos::HeterogeneousHGCalPositionsMapping and cpos::HGCalPositionsMapping
-  
+  const size_t number_position_arrays =
+      2;  //x and y; required due to the assymetry between cpos::HeterogeneousHGCalPositionsMapping and cpos::HGCalPositionsMapping
+
   std::vector<size_t> calculate_memory_bytes_(cpos::HGCalPositionsMapping*);
   size_t allocate_memory_(const std::vector<size_t>&);
   void transfer_data_to_heterogeneous_pointers_(const std::vector<size_t>&, cpos::HGCalPositionsMapping*);
@@ -61,9 +63,9 @@ class HeterogeneousHGCalHEFCellPositionsConditions {
     // Destructor should free all member pointers
     ~GPUData();
     // internal pointers are on device, struct itself is on CPU
-    hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct *host = nullptr;
+    hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct* host = nullptr;
     // internal pounters and struct are on device
-    hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct *device = nullptr;
+    hgcal_conditions::HeterogeneousHEFCellPositionsConditionsESProduct* device = nullptr;
   };
 
   // Helper that takes care of complexity of transferring the data to
@@ -71,4 +73,4 @@ class HeterogeneousHGCalHEFCellPositionsConditions {
   cms::cuda::ESProduct<GPUData> gpuData_;
 };
 
-#endif //CondFormats_HGCalObjects_HeterogeneousHGCalHEFConditions_h
+#endif  //CondFormats_HGCalObjects_HeterogeneousHGCalHEFConditions_h
