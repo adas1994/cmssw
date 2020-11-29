@@ -507,8 +507,9 @@ void HGCDigitizer::accumulate_forPreMix(edm::Handle<edm::PCaloHitContainer> cons
   if (nullptr == geom)
     return;
 
+  std::array<float, 3> tdcForToAOnset{{0.f, 0.f, 0.f}};
   float keV2fC(0.f);
-
+  bool weightToAbyEnergy = getWeight(tdcForToAOnset, keV2fC);
   int nchits = (int)hits->size();
 
   std::vector<HGCCaloHitTuple_t> hitRefs;
