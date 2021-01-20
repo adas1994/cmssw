@@ -13,7 +13,7 @@ F.register('withGPU',
            F.varType.bool,
            "Whether to run with GPUs or CPUs.")
 F.register('PU',
-           0,
+           -1,
            F.multiplicity.singleton,
            F.varType.int,
            "Pileup to consider.")
@@ -30,7 +30,6 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('SimGeneral.HepPDTESSource.pythiapdt_cfi')
 process.load('Configuration.StandardSequences.MagneticField_cff')
-#process.load('Configuration.EventContent.EventContent_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 process.load('Configuration.Geometry.GeometryExtended2026D49Reco_cff')
 process.load('HeterogeneousCore.CUDAServices.CUDAService_cfi')
@@ -42,18 +41,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
-#indir = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/bfontana/GPUScintillator/CloseByParticleGunProducer_bfontana_PDGId22_nPart1_E60_eta1p4to4p0_CE_H_Coarse_Scint_Delta_2p5_20200728_bfontana_PDGId22_nPart1_E60_eta1p4to4p0_CE_H_Coarse_Scint_Delta_2p5_20200728/RECO/'
-#file_wildcard = 'closeby_PDGid22_x100_E60.0To60.0_RECO_*.root'
-"""
-indir = '/eos/cms/store/group/dpg_hgcal/comm_hgcal/bfontana/GPUScintillator/'
-file_wildcard = 'step3_0.root'
-glob = glob.glob( os.path.join(indir, file_wildcard) )
-fNames = ['file:' + it for it in glob][:]
-"""
-#fNames = ['file:/afs/cern.ch/user/b/bfontana/CMSSW_11_2_0_pre5/src/23234.0_TTbar_14TeV+2026D49+TTbar_14TeV_TuneCP5_GenSimHLBeamSpot14+DigiTrigger+RecoGlobal+HARVESTGlobal/step3.root']
 indir = '/eos/user/b/bfontana/Samples/'
-fNames = ['file:' + os.path.join(indir, 'step3_ttbar_PU0.root') ]
-
+fNames = [ 'file:' + x for x in glob.glob(os.path.join(indir, 'step3_ttbar_PU' + str(F.PU) + '*.root')) ]
 keep = 'keep *'
 drop = 'drop CSCDetIdCSCALCTPreTriggerDigiMuonDigiCollection_simCscTriggerPrimitiveDigis__HLT'
 process.source = cms.Source("PoolSource",
@@ -125,5 +114,5 @@ else:
 process.path = cms.Path( process.recHitsTask )
 
 process.out = cms.OutputModule( "PoolOutputModule", 
-                                fileName = cms.untracked.string( os.path.join(indir, 'out.root') ) )
+                                fileName = cms.untracked.string( os.path.join(indir, 'out_PU' + str(F.PU) + '.root') ) )
 process.outpath = cms.EndPath(process.out)
