@@ -633,8 +633,8 @@ void HGCDigitizer::accumulate_forPreMix(edm::Handle<edm::PCaloHitContainer> cons
 
         hitRec_itr insertedPos = findPos;
 	if (std::get<2>(*(findPos)) == tof) {
-	  std::get<0>(*(findPos - 1)) += charge;
-	  std::get<1>(*(findPos - 1)) += charge;
+	  std::get<0>(*(findPos)) += charge;
+	  std::get<1>(*(findPos)) += charge;
 	}
 	else {
           insertedPos = PhitRefs_bx0[id].insert(findPos,
